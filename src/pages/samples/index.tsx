@@ -60,8 +60,7 @@ export function SamplesListPage() {
           },
         })
         .then((r) => r.data),
-    keepPreviousData: true,
-  } as any);
+  });
 
   return (
     <AppShell>

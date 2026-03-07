@@ -338,7 +338,9 @@ export function RequestDetailPage() {
               <h3 className="font-display text-sm font-semibold mb-3">
                 Request Status
               </h3>
-              <StatusBadge status={data.status} className="mb-4" />
+              <div className="mb-4">
+                <StatusBadge status={data.status} />
+              </div>
               <div className="space-y-2 text-xs text-gray-600">
                 <p>
                   Created: {format(new Date(data.created_at), "dd MMM yyyy")}
