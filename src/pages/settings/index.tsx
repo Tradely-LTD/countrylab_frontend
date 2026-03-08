@@ -52,6 +52,7 @@ export function SettingsPage() {
     if (validTab !== activeTab) {
       setActiveTab(validTab);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tabParam]);
 
   const handleTabChange = (tab: "organization" | "categories") => {
