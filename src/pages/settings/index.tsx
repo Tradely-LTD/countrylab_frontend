@@ -126,7 +126,7 @@ function OrganizationSettings() {
     formState: { errors },
   } = useForm({
     resolver: zodResolver(orgSchema),
-    values: tenant || {},
+    defaultValues: tenant || {},
   });
 
   const mutation = useMutation({
