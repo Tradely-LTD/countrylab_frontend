@@ -200,7 +200,7 @@ function OrganizationSettings() {
   const logoUrl = tenant?.logo_url
     ? tenant.logo_url.startsWith("http")
       ? tenant.logo_url
-      : `${(import.meta as any).env.VITE_API_URL || "http://localhost:3001"}${tenant.logo_url}?v=${tenant.updated_at ? new Date(tenant.updated_at).getTime() : Date.now()}`
+      : `${import.meta.env.VITE_API_URL || "http://localhost:3001"}${tenant.logo_url}?v=${tenant.updated_at ? new Date(tenant.updated_at).getTime() : Date.now()}`
     : null;
 
   React.useEffect(() => {
