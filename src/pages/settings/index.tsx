@@ -198,11 +198,15 @@ function OrganizationSettings() {
     );
   }
 
-  const logoUrl = tenant?.logo_url
-    ? tenant.logo_url.startsWith("http")
-      ? tenant.logo_url
-      : `${import.meta.env.VITE_API_URL || "http://localhost:3001"}${tenant.logo_url}?v=${tenant.updated_at ? new Date(tenant.updated_at).getTime() : Date.now()}`
-    : null;
+  const logoUrl = React.useMemo(() => {
+    if (!tenant?.logo_url) return null;
+    if (tenant.logo_url.startsWith("http")) return tenant.logo_url;
+    const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:3001";
+    const timestamp = tenant.updated_at
+      ? new Date(tenant.updated_at).getTime()
+      : Date.now();
+    return `${baseUrl}${tenant.logo_url}?v=${timestamp}`;
+  }, [tenant?.logo_url, tenant?.updated_at]);
 
   React.useEffect(() => {
     if (tenant) {
