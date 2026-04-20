@@ -117,7 +117,7 @@ export default function InvoiceDetailPage() {
   const logoUrl = org?.logo_url
     ? org.logo_url.startsWith("http")
       ? org.logo_url
-      : `http://localhost:3001${org.logo_url}?v=${org.updated_at ? new Date(org.updated_at).getTime() : Date.now()}`
+      : `${org.logo_url}?v=${org.updated_at ? new Date(org.updated_at).getTime() : Date.now()}`
     : null;
 
   return (
@@ -446,10 +446,33 @@ export default function InvoiceDetailPage() {
                       {formatCurrency(invoice.subtotal, invoice.currency)}
                     </span>
                   </div>
+                  {invoice.discount_amount > 0 && (
+                    <div className="flex justify-between text-sm text-red-600">
+                      <span>
+                        Discount (
+                        {invoice.discount_type === "percentage"
+                          ? `${invoice.discount_value}%`
+                          : "Fixed"}
+                        ):
+                      </span>
+                      <span>
+                        -{" "}
+                        {formatCurrency(
+                          invoice.discount_amount,
+                          invoice.currency,
+                        )}
+                      </span>
+                    </div>
+                  )}
                   {invoice.tax_rate > 0 && (
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">
-                        Tax ({invoice.tax_rate}%):
+                        Tax ({invoice.tax_rate}% on{" "}
+                        {formatCurrency(
+                          invoice.subtotal - (invoice.discount_amount || 0),
+                          invoice.currency,
+                        )}
+                        ):
                       </span>
                       <span className="font-medium">
                         {formatCurrency(invoice.tax_amount, invoice.currency)}
@@ -490,6 +513,37 @@ export default function InvoiceDetailPage() {
                   </div>
                 </div>
               )}
+
+              {/* Payment Details */}
+              {(() => {
+                const bankAccounts = (
+                  invoice?.organization?.settings?.bank_accounts ?? []
+                ).filter((a: any) => a.is_active);
+                return (
+                  bankAccounts.length > 0 && (
+                    <div className="mb-6 p-4 bg-gray-50 rounded">
+                      <h3 className="font-semibold text-sm text-gray-700 mb-2">
+                        PAYMENT DETAILS
+                      </h3>
+                      {bankAccounts.map((acct: any) => (
+                        <div
+                          key={acct.id}
+                          className="text-xs text-gray-600 mb-1"
+                        >
+                          <span className="font-medium">{acct.bank_name}</span>{" "}
+                          — {acct.account_name} — {acct.account_number}
+                          {acct.label && (
+                            <span className="text-gray-400">
+                              {" "}
+                              ({acct.label})
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )
+                );
+              })()}
 
               {/* Footer */}
               <div className="mt-8 pt-6 border-t text-center text-xs text-gray-500">

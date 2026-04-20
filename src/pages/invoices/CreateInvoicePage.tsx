@@ -10,24 +10,39 @@ import { AppShell, PageContainer, TopHeader } from "../../components/layout";
 import { Button, Input, Textarea, Card, Select } from "../../components/ui";
 import toast from "react-hot-toast";
 
-const invoiceSchema = z.object({
-  client_id: z.string().min(1, "Client is required"),
-  sample_id: z.string().optional(),
-  line_items: z
-    .array(
-      z.object({
-        description: z.string().min(1, "Description is required"),
-        quantity: z.number().min(0.01, "Quantity must be positive"),
-        unit_price: z.number().min(0, "Unit price must be positive"),
-        amount: z.number(),
-      }),
-    )
-    .min(1, "At least one line item is required"),
-  tax_rate: z.number().min(0).max(100).default(7.5),
-  due_date: z.string().optional(),
-  notes: z.string().optional(),
-  currency: z.string().default("NGN"),
-});
+const invoiceSchema = z
+  .object({
+    client_id: z.string().min(1, "Client is required"),
+    sample_id: z.string().optional(),
+    line_items: z
+      .array(
+        z.object({
+          description: z.string().min(1, "Description is required"),
+          quantity: z.number().min(0.01, "Quantity must be positive"),
+          unit_price: z.number().min(0, "Unit price must be positive"),
+          amount: z.number(),
+        }),
+      )
+      .min(1, "At least one line item is required"),
+    tax_rate: z.number().min(0).max(100).default(7.5),
+    discount_type: z.enum(["percentage", "fixed"]).default("percentage"),
+    discount_value: z.number().min(0).default(0),
+    due_date: z.string().optional(),
+    notes: z.string().optional(),
+    currency: z.string().default("NGN"),
+  })
+  .superRefine((data, ctx) => {
+    if (
+      data.discount_type === "percentage" &&
+      (data.discount_value < 0 || data.discount_value > 100)
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Percentage discount must be between 0 and 100",
+        path: ["discount_value"],
+      });
+    }
+  });
 
 type InvoiceFormData = z.infer<typeof invoiceSchema>;
 
@@ -66,6 +81,8 @@ export default function CreateInvoicePage() {
     defaultValues: {
       line_items: [{ description: "", quantity: 1, unit_price: 0, amount: 0 }],
       tax_rate: 7.5,
+      discount_type: "percentage",
+      discount_value: 0,
       currency: "NGN",
     },
   });
@@ -77,10 +94,17 @@ export default function CreateInvoicePage() {
 
   const lineItems = watch("line_items");
   const taxRate = watch("tax_rate");
+  const discountType = watch("discount_type");
+  const discountValue = watch("discount_value");
 
   const subtotal = lineItems.reduce((sum, item) => sum + (item.amount || 0), 0);
-  const taxAmount = subtotal * (taxRate / 100);
-  const total = subtotal + taxAmount;
+  const discountAmount =
+    discountType === "percentage"
+      ? subtotal * (discountValue / 100)
+      : Math.min(discountValue, subtotal);
+  const taxableAmount = subtotal - discountAmount;
+  const taxAmount = taxableAmount * (taxRate / 100);
+  const total = taxableAmount + taxAmount;
 
   // Pre-fill form when request data is loaded
   useEffect(() => {
@@ -98,6 +122,13 @@ export default function CreateInvoicePage() {
       }
     }
   }, [requestData, setValue]);
+
+  // Warn when fixed discount is capped at subtotal
+  useEffect(() => {
+    if (discountType === "fixed" && discountValue > subtotal && subtotal > 0) {
+      toast("Fixed discount capped at subtotal", { icon: "⚠️" });
+    }
+  }, [discountType, discountValue, subtotal]);
 
   const createMutation = useMutation({
     mutationFn: (data: InvoiceFormData) => {
@@ -330,6 +361,31 @@ export default function CreateInvoicePage() {
                     error={errors.tax_rate?.message}
                   />
 
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Discount Type
+                    </label>
+                    <select
+                      {...register("discount_type")}
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="percentage">Percentage (%)</option>
+                      <option value="fixed">Fixed Amount</option>
+                    </select>
+                  </div>
+
+                  <Input
+                    label={
+                      discountType === "percentage"
+                        ? "Discount (%)"
+                        : "Discount Amount"
+                    }
+                    type="number"
+                    step="0.01"
+                    {...register("discount_value", { valueAsNumber: true })}
+                    error={errors.discount_value?.message}
+                  />
+
                   <Input
                     label="Due Date (Optional)"
                     type="date"
@@ -353,8 +409,23 @@ export default function CreateInvoicePage() {
                         {formatCurrency(subtotal)}
                       </span>
                     </div>
+                    {discountAmount > 0 && (
+                      <div className="flex justify-between text-red-600">
+                        <span>
+                          Discount (
+                          {discountType === "percentage"
+                            ? `${discountValue}%`
+                            : "Fixed"}
+                          ):
+                        </span>
+                        <span>- {formatCurrency(discountAmount)}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Tax ({taxRate}%):</span>
+                      <span className="text-gray-600">
+                        Tax ({taxRate}%
+                        {discountAmount > 0 ? " on post-discount" : ""}):
+                      </span>
                       <span className="font-medium">
                         {formatCurrency(taxAmount)}
                       </span>

@@ -1,5 +1,5 @@
 // Assets Page
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -1611,8 +1611,21 @@ function NewRequisitionModal({
 export function ClientsPage() {
   const [showNew, setShowNew] = useState(false);
   const [viewingClient, setViewingClient] = useState<any>(null);
+  const [interactionClient, setInteractionClient] = useState<any>(null);
   const [search, setSearch] = useState("");
+  const [createdBy, setCreatedBy] = useState<string>("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [isExporting, setIsExporting] = useState(false);
   const { user, isRole } = useAuth();
+  const queryClient = useQueryClient();
+
+  // Default business_development users to their own filter
+  useEffect(() => {
+    if (user?.role === "business_development" && user?.id) {
+      setCreatedBy(user.id);
+    }
+  }, [user?.id, user?.role]);
 
   const canManageClients = isRole(
     "super_admin",
@@ -1622,13 +1635,94 @@ export function ClientsPage() {
     "finance",
   );
 
-  const { data } = useQuery({
-    queryKey: ["clients", search],
+  const canToggleStatus = isRole(
+    "super_admin",
+    "md",
+    "quality_manager",
+    "business_development",
+    "finance",
+  );
+
+  // Fetch users for staff filter
+  const { data: usersData } = useQuery({
+    queryKey: ["users"],
+    queryFn: () => api.get("/users").then((r) => r.data.data),
+  });
+
+  const staffUsers = (usersData || []).filter((u: any) =>
+    [
+      "super_admin",
+      "md",
+      "quality_manager",
+      "business_development",
+      "finance",
+      "lab_analyst",
+      "staff",
+    ].includes(u.role),
+  );
+
+  const { data: clientsResponse } = useQuery({
+    queryKey: ["clients", search, createdBy, fromDate, toDate],
     queryFn: () =>
       api
-        .get("/clients", { params: { search: search || undefined } })
-        .then((r) => r.data.data),
+        .get("/clients", {
+          params: {
+            search: search || undefined,
+            created_by: createdBy || undefined,
+            from: fromDate || undefined,
+            to: toDate || undefined,
+          },
+        })
+        .then((r) => r.data),
   });
+
+  const clients: any[] = clientsResponse?.data ?? clientsResponse ?? [];
+  const summary = clientsResponse?.summary ?? null;
+
+  const statusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) =>
+      api.patch(`/clients/${id}/status`, { status }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+      toast.success("Client status updated");
+    },
+    onError: () => {
+      toast.error("Failed to update client status");
+    },
+  });
+
+  function toggleStatus(client: any) {
+    const newStatus = client.client_status === "lead" ? "active" : "lead";
+    statusMutation.mutate({ id: client.id, status: newStatus });
+  }
+
+  async function handleExport() {
+    setIsExporting(true);
+    try {
+      const response = await api.get("/clients/export", {
+        params: {
+          created_by: createdBy || undefined,
+          from: fromDate || undefined,
+          to: toDate || undefined,
+        },
+        responseType: "blob",
+      });
+      const url = URL.createObjectURL(new Blob([response.data]));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `clients-export-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      toast.error(e.response?.data?.error || "Export failed");
+    } finally {
+      setIsExporting(false);
+    }
+  }
+
+  const noData = clients.length === 0;
 
   return (
     <AppShell>
@@ -1636,24 +1730,95 @@ export function ClientsPage() {
         title="Clients"
         subtitle="Manage client accounts and contacts"
         actions={
-          canManageClients && (
+          <div className="flex gap-2">
             <Button
-              leftIcon={<Plus size={14} />}
-              onClick={() => setShowNew(true)}
+              variant="secondary"
+              onClick={handleExport}
+              disabled={noData || isExporting}
+              title={noData ? "No data to export" : undefined}
             >
-              Add Client
+              {isExporting ? "Exporting..." : "Export CSV"}
             </Button>
-          )
+            {noData && (
+              <span className="text-xs text-lab-muted self-center">
+                No data to export
+              </span>
+            )}
+            {canManageClients && (
+              <Button
+                leftIcon={<Plus size={14} />}
+                onClick={() => setShowNew(true)}
+              >
+                Add Client
+              </Button>
+            )}
+          </div>
         }
       />
       <PageContainer>
-        <Input
-          placeholder="Search clients..."
-          leftIcon={<Search size={14} />}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="max-w-xs mb-4"
-        />
+        {/* Analytics Summary Panel */}
+        {summary && (
+          <div className="grid grid-cols-3 gap-4 mb-4">
+            <div className="card p-4 text-center">
+              <p className="text-2xl font-bold text-primary-600">
+                {summary.total ?? 0}
+              </p>
+              <p className="text-sm text-lab-muted mt-1">Total Clients</p>
+            </div>
+            <div className="card p-4 text-center">
+              <p className="text-2xl font-bold text-yellow-600">
+                {summary.leads ?? 0}
+              </p>
+              <p className="text-sm text-lab-muted mt-1">Total Leads</p>
+            </div>
+            <div className="card p-4 text-center">
+              <p className="text-2xl font-bold text-blue-600">
+                {summary.interactions ?? 0}
+              </p>
+              <p className="text-sm text-lab-muted mt-1">Total Interactions</p>
+            </div>
+          </div>
+        )}
+
+        {/* Filters */}
+        <div className="flex flex-wrap gap-3 mb-4">
+          <Input
+            placeholder="Search clients..."
+            leftIcon={<Search size={14} />}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="max-w-xs"
+          />
+          <select
+            value={createdBy}
+            onChange={(e) => setCreatedBy(e.target.value)}
+            className="border border-lab-border rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+          >
+            <option value="">All Staff</option>
+            {staffUsers.map((u: any) => (
+              <option key={u.id} value={u.id}>
+                {u.full_name}
+              </option>
+            ))}
+          </select>
+          <input
+            type="date"
+            value={fromDate}
+            onChange={(e) => setFromDate(e.target.value)}
+            className="border border-lab-border rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+            placeholder="From"
+            title="From date"
+          />
+          <input
+            type="date"
+            value={toDate}
+            onChange={(e) => setToDate(e.target.value)}
+            className="border border-lab-border rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+            placeholder="To"
+            title="To date"
+          />
+        </div>
+
         <div className="card overflow-hidden">
           <table className="data-table">
             <thead>
@@ -1663,31 +1828,72 @@ export function ClientsPage() {
                 <th>Contact Person</th>
                 <th>Email</th>
                 <th>Phone</th>
+                <th>Uploaded By</th>
+                <th>Status</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {(data || []).map((c: any) => (
+              {clients.map((c: any) => (
                 <tr key={c.id}>
                   <td className="font-medium text-sm">{c.name}</td>
                   <td className="text-sm">{c.company || "—"}</td>
                   <td className="text-sm">{c.contact_person || "—"}</td>
                   <td className="text-sm">{c.email || "—"}</td>
                   <td className="text-sm">{c.phone || "—"}</td>
+                  <td className="text-sm">{c.creator_name || "—"}</td>
                   <td>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setViewingClient(c)}
-                    >
-                      View History
-                    </Button>
+                    {canToggleStatus ? (
+                      <button
+                        onClick={() => toggleStatus(c)}
+                        disabled={statusMutation.isPending}
+                        className={clsx(
+                          "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium transition-opacity",
+                          c.client_status === "lead"
+                            ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
+                            : "bg-green-100 text-green-800 hover:bg-green-200",
+                          statusMutation.isPending &&
+                            "opacity-50 cursor-not-allowed",
+                        )}
+                      >
+                        {c.client_status === "lead" ? "Lead" : "Active"}
+                      </button>
+                    ) : (
+                      <span
+                        className={clsx(
+                          "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium",
+                          c.client_status === "lead"
+                            ? "bg-yellow-100 text-yellow-800"
+                            : "bg-green-100 text-green-800",
+                        )}
+                      >
+                        {c.client_status === "lead" ? "Lead" : "Active"}
+                      </span>
+                    )}
+                  </td>
+                  <td>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setInteractionClient(c)}
+                      >
+                        Log Interaction
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setViewingClient(c)}
+                      >
+                        History
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}
-              {!(data || []).length && (
+              {clients.length === 0 && (
                 <tr>
-                  <td colSpan={6}>
+                  <td colSpan={8}>
                     <EmptyState
                       title="No clients yet"
                       action={
@@ -1714,8 +1920,209 @@ export function ClientsPage() {
             onClose={() => setViewingClient(null)}
           />
         )}
+        {interactionClient && (
+          <InteractionModal
+            client={interactionClient}
+            onClose={() => setInteractionClient(null)}
+          />
+        )}
       </PageContainer>
     </AppShell>
+  );
+}
+
+// ── Interaction Modal ──────────────────────────────────────────────────────────
+
+function InteractionModal({
+  client,
+  onClose,
+}: {
+  client: any;
+  onClose: () => void;
+}) {
+  const qc = useQueryClient();
+  const [type, setType] = useState("Call");
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [notes, setNotes] = useState("");
+  const [outcome, setOutcome] = useState("Interested");
+
+  const { data: interactions, isLoading: loadingHistory } = useQuery({
+    queryKey: ["client-interactions", client.id],
+    queryFn: () =>
+      api.get(`/clients/${client.id}/interactions`).then((r) => r.data.data),
+  });
+
+  const mutation = useMutation({
+    mutationFn: () =>
+      api.post(`/clients/${client.id}/interactions`, {
+        type,
+        date: new Date(date).toISOString(),
+        notes,
+        outcome,
+      }),
+    onSuccess: () => {
+      toast.success("Interaction logged");
+      qc.invalidateQueries({ queryKey: ["client-interactions", client.id] });
+      qc.invalidateQueries({ queryKey: ["clients"] });
+      setNotes("");
+    },
+    onError: (e: any) =>
+      toast.error(e.response?.data?.error || "Failed to log interaction"),
+  });
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={`Interactions — ${client.name}`}
+      size="lg"
+    >
+      <div className="space-y-4">
+        {/* Log form */}
+        <div className="p-4 bg-lab-bg rounded-lg space-y-3">
+          <h3 className="font-semibold text-sm">Log New Interaction</h3>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-lab-muted mb-1">
+                Type
+              </label>
+              <select
+                value={type}
+                onChange={(e) => setType(e.target.value)}
+                className="w-full border border-lab-border rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+              >
+                {["Call", "Email", "Visit", "Meeting", "Other"].map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-lab-muted mb-1">
+                Date
+              </label>
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="w-full border border-lab-border rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-lab-muted mb-1">
+              Outcome
+            </label>
+            <select
+              value={outcome}
+              onChange={(e) => setOutcome(e.target.value)}
+              className="w-full border border-lab-border rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+            >
+              {[
+                "Interested",
+                "Not Interested",
+                "Follow-up Required",
+                "Converted",
+              ].map((o) => (
+                <option key={o} value={o}>
+                  {o}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-lab-muted mb-1">
+              Notes
+            </label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={3}
+              placeholder="Add notes about this interaction..."
+              className="w-full border border-lab-border rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
+            />
+          </div>
+          <Button
+            onClick={() => mutation.mutate()}
+            loading={mutation.isPending}
+            disabled={!date}
+            size="sm"
+          >
+            Log Interaction
+          </Button>
+        </div>
+
+        {/* Interaction history */}
+        <div>
+          <h3 className="font-semibold text-sm mb-3">Interaction History</h3>
+          {loadingHistory ? (
+            <div className="space-y-2">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-14 w-full" />
+              ))}
+            </div>
+          ) : (interactions || []).length > 0 ? (
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {(interactions || []).map((interaction: any) => (
+                <div
+                  key={interaction.id}
+                  className="p-3 border border-lab-border rounded-lg text-sm"
+                >
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <span className="font-medium">{interaction.type}</span>
+                      <span className="text-lab-muted mx-2">·</span>
+                      <span className="text-lab-muted">
+                        {interaction.staff_name ||
+                          interaction.staff?.full_name ||
+                          "—"}
+                      </span>
+                    </div>
+                    <div className="text-right text-xs text-lab-muted">
+                      {interaction.date
+                        ? format(new Date(interaction.date), "dd MMM yyyy")
+                        : "—"}
+                    </div>
+                  </div>
+                  {interaction.outcome && (
+                    <span
+                      className={clsx(
+                        "inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-medium",
+                        interaction.outcome === "Converted"
+                          ? "bg-green-100 text-green-800"
+                          : interaction.outcome === "Interested"
+                            ? "bg-blue-100 text-blue-800"
+                            : interaction.outcome === "Not Interested"
+                              ? "bg-red-100 text-red-800"
+                              : "bg-yellow-100 text-yellow-800",
+                      )}
+                    >
+                      {interaction.outcome}
+                    </span>
+                  )}
+                  {interaction.notes && (
+                    <p className="text-xs text-lab-muted mt-1">
+                      {interaction.notes}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-lab-muted">
+              No interactions logged yet.
+            </p>
+          )}
+        </div>
+
+        <div className="flex justify-end pt-2">
+          <Button variant="secondary" onClick={onClose}>
+            Close
+          </Button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 

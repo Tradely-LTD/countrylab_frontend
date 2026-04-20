@@ -20,6 +20,7 @@ import {
   Menu,
   X,
   Truck,
+  WifiOff,
 } from "lucide-react";
 import { useAuth } from "../../lib/auth";
 import { useState } from "react";
@@ -299,6 +300,7 @@ export function TopHeader({
 // ─── App Shell ────────────────────────────────────────────────────────────────
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
+  const { networkError } = useAuth();
 
   return (
     <div className="min-h-screen bg-lab-bg">
@@ -309,6 +311,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           collapsed ? "ml-16" : "ml-[240px]",
         )}
       >
+        {networkError && (
+          <div className="flex items-center gap-2 bg-red-50 border-b border-red-200 px-6 py-2.5 text-sm text-red-700">
+            <WifiOff size={15} className="shrink-0" />
+            <span>
+              Cannot reach the server. Check your internet connection or contact
+              support.
+            </span>
+          </div>
+        )}
         {children}
       </main>
     </div>

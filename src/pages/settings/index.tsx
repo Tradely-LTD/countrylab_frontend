@@ -6,19 +6,21 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useSearchParams } from "react-router-dom";
 import {
-  Settings as SettingsIcon,
   Building2,
-  Users,
-  Package,
   Tag,
   Plus,
   Edit,
   Trash2,
   Save,
   Upload,
+  Users,
+  FileText,
+  CreditCard,
 } from "lucide-react";
 import { api } from "../../lib/api";
+import { useAuth } from "../../lib/auth";
 import { AppShell, PageContainer, TopHeader } from "../../components/layout";
+import { TemplateLibraryTab } from "./TemplateLibraryTab";
 import {
   Button,
   Input,
@@ -31,20 +33,63 @@ import {
 import toast from "react-hot-toast";
 import { clsx } from "clsx";
 
+// Schemas defined outside components to avoid re-creation on every render
+const orgSchema = z.object({
+  name: z.string().min(1, "Organization name is required"),
+  address: z.string().optional(),
+  phone: z.string().optional(),
+  email: z.string().email().optional().or(z.literal("")),
+  accreditation_number: z.string().optional(),
+});
+
+interface BankAccount {
+  id: string;
+  account_number: string;
+  account_name: string;
+  bank_name: string;
+  label?: string;
+  is_active: boolean;
+}
+
+const bankAccountSchema = z.object({
+  account_number: z.string().min(1, "Account number is required"),
+  account_name: z.string().min(1, "Account name is required"),
+  bank_name: z.string().min(1, "Bank name is required"),
+  label: z.string().optional(),
+});
+
+const BANK_ACCOUNT_ROLES = ["super_admin", "md", "finance"];
+
+const supplierSchema = z.object({
+  name: z.string().min(1, "Supplier name is required"),
+  company: z.string().optional(),
+  email: z.string().email().optional().or(z.literal("")),
+  phone: z.string().optional(),
+  address: z.string().optional(),
+  contact_person: z.string().optional(),
+  website: z.string().url().optional().or(z.literal("")),
+  tax_id: z.string().optional(),
+  payment_terms: z.string().optional(),
+  notes: z.string().optional(),
+});
+
 export function SettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get("tab");
 
   // Validate and set initial tab
-  const getValidTab = (tab: string | null): "organization" | "categories" => {
+  const getValidTab = (
+    tab: string | null,
+  ): "organization" | "categories" | "templates" => {
     if (tab === "categories") return tab;
+    if (tab === "templates") return tab;
     if (tab === "organizations") return "organization"; // Handle legacy/alternate name
     return "organization";
   };
 
-  const [activeTab, setActiveTab] = useState<"organization" | "categories">(
-    getValidTab(tabParam),
-  );
+  const [activeTab, setActiveTab] = useState<
+    "organization" | "categories" | "templates"
+  >(getValidTab(tabParam));
 
   // Sync tab with URL
   useEffect(() => {
@@ -55,7 +100,9 @@ export function SettingsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tabParam]);
 
-  const handleTabChange = (tab: "organization" | "categories") => {
+  const handleTabChange = (
+    tab: "organization" | "categories" | "templates",
+  ) => {
     setActiveTab(tab);
     setSearchParams({ tab });
   };
@@ -63,6 +110,7 @@ export function SettingsPage() {
   const tabs = [
     { key: "organization", label: "Organization", icon: Building2 },
     { key: "categories", label: "Categories", icon: Tag },
+    { key: "templates", label: "Templates", icon: FileText },
   ];
 
   return (
@@ -94,6 +142,7 @@ export function SettingsPage() {
         {/* Tab Content */}
         {activeTab === "organization" && <OrganizationSettings />}
         {activeTab === "categories" && <CategoriesSettings />}
+        {activeTab === "templates" && <TemplateLibraryTab />}
       </PageContainer>
     </AppShell>
   );
@@ -107,27 +156,45 @@ function OrganizationSettings() {
   const [logoPreview, setLogoPreview] = React.useState<string | null>(null);
   const [logoError, setLogoError] = React.useState(false);
 
-  const { data: tenant, isLoading } = useQuery({
+  const {
+    data: tenant,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ["tenant-settings"],
     queryFn: () => api.get("/settings/organization").then((r) => r.data.data),
-  });
-
-  const orgSchema = z.object({
-    name: z.string().min(1, "Organization name is required"),
-    address: z.string().optional(),
-    phone: z.string().optional(),
-    email: z.string().email().optional().or(z.literal("")),
-    accreditation_number: z.string().optional(),
   });
 
   const {
     register,
     handleSubmit,
+    reset,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(orgSchema),
-    defaultValues: tenant || {},
+    defaultValues: {
+      name: "",
+      address: "",
+      phone: "",
+      email: "",
+      accreditation_number: "",
+    },
   });
+
+  // Populate form when tenant data loads
+  useEffect(() => {
+    if (tenant) {
+      reset({
+        name: tenant.name || "",
+        address: tenant.address || "",
+        phone: tenant.phone || "",
+        email: tenant.email || "",
+        accreditation_number: tenant.accreditation_number || "",
+      });
+    }
+  }, [tenant, reset]);
 
   const mutation = useMutation({
     mutationFn: (data: any) => api.put("/settings/organization", data),
@@ -187,6 +254,20 @@ function OrganizationSettings() {
     if (logoFile) logoMutation.mutate(logoFile);
   };
 
+  const logoUrl = React.useMemo(() => {
+    if (!tenant?.logo_url) return null;
+    if (tenant.logo_url.startsWith("http")) return tenant.logo_url;
+    const timestamp = tenant.updated_at
+      ? new Date(tenant.updated_at).getTime()
+      : Date.now();
+    return `${tenant.logo_url}?v=${timestamp}`;
+  }, [tenant?.logo_url, tenant?.updated_at]);
+
+  // Reset logo error when logo_url changes
+  React.useEffect(() => {
+    setLogoError(false);
+  }, [tenant?.logo_url]);
+
   if (isLoading) {
     return (
       <Card className="p-6">
@@ -198,138 +279,394 @@ function OrganizationSettings() {
     );
   }
 
-  const logoUrl = React.useMemo(() => {
-    if (!tenant?.logo_url) return null;
-    if (tenant.logo_url.startsWith("http")) return tenant.logo_url;
-    const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:3001";
-    const timestamp = tenant.updated_at
-      ? new Date(tenant.updated_at).getTime()
-      : Date.now();
-    return `${baseUrl}${tenant.logo_url}?v=${timestamp}`;
-  }, [tenant?.logo_url, tenant?.updated_at]);
+  if (isError) {
+    return (
+      <Card className="p-6" data-testid="settings-error">
+        <div className="flex flex-col items-center gap-3 py-6 text-center">
+          <p className="text-red-600 font-medium">
+            Failed to load organization settings
+          </p>
+          <p className="text-sm text-gray-500">
+            {(error as any)?.response?.data?.error ||
+              (error as any)?.message ||
+              "An unexpected error occurred"}
+          </p>
+          <button
+            onClick={() => refetch()}
+            className="mt-2 px-4 py-2 text-sm bg-primary text-white rounded-md hover:bg-primary/90"
+          >
+            Try again
+          </button>
+        </div>
+      </Card>
+    );
+  }
 
-  React.useEffect(() => {
-    if (tenant) {
-      console.log("Tenant logo_url from DB:", tenant.logo_url);
-      console.log("Constructed logoUrl:", logoUrl);
-      console.log("Tenant updated_at:", tenant.updated_at);
-      setLogoError(false); // Reset error state when tenant changes
-    }
-  }, [tenant, logoUrl]);
+  const isUnconfigured = !tenant?.name;
 
   return (
-    <Card className="p-6">
-      <h3 className="font-display text-lg mb-4">Organization Information</h3>
+    <div className="space-y-6">
+      <Card className="p-6">
+        <h3 className="font-display text-lg mb-4">Organization Information</h3>
 
-      {/* Logo Section */}
-      <div className="mb-6 pb-6 border-b">
-        <label className="block text-sm font-medium mb-2">
-          Organization Logo
-        </label>
-        <div className="flex items-start gap-4">
-          <div className="w-32 h-32 border-2 border-dashed rounded-lg flex items-center justify-center bg-gray-50">
-            {logoPreview ? (
-              <img
-                src={logoPreview}
-                alt="Logo preview"
-                className="max-w-full max-h-full object-contain p-2"
-              />
-            ) : logoUrl && !logoError ? (
-              <img
-                src={logoUrl}
-                alt="Organization logo"
-                className="max-w-full max-h-full object-contain p-2"
-                onError={() => {
-                  console.error("Failed to load logo:", logoUrl);
-                  setLogoError(true);
-                }}
-                onLoad={() => console.log("Logo loaded successfully:", logoUrl)}
-              />
-            ) : (
-              <div className="text-center text-gray-400 text-xs">
-                <Upload size={24} className="mx-auto mb-1" />
-                {logoError ? "Failed to load" : "No logo"}
-              </div>
-            )}
+        {isUnconfigured && (
+          <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+            Organization not configured yet. Fill in the details below and save
+            to get started.
           </div>
-          <div className="flex-1">
-            <input
-              type="file"
-              accept="image/jpeg,image/jpg,image/png,image/svg+xml"
-              onChange={handleLogoChange}
-              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              PNG, JPG, SVG up to 5MB
-            </p>
-            <div className="flex gap-2 mt-3">
-              {logoFile && (
-                <Button
-                  size="sm"
-                  onClick={handleLogoUpload}
-                  loading={logoMutation.isPending}
-                  leftIcon={<Upload size={14} />}
-                >
-                  Upload
-                </Button>
+        )}
+
+        {/* Logo Section */}
+        <div className="mb-6 pb-6 border-b">
+          <label className="block text-sm font-medium mb-2">
+            Organization Logo
+          </label>
+          <div className="flex items-start gap-4">
+            <div className="w-32 h-32 border-2 border-dashed rounded-lg flex items-center justify-center bg-gray-50">
+              {logoPreview ? (
+                <img
+                  src={logoPreview}
+                  alt="Logo preview"
+                  className="max-w-full max-h-full object-contain p-2"
+                />
+              ) : logoUrl && !logoError ? (
+                <img
+                  src={logoUrl}
+                  alt="Organization logo"
+                  className="max-w-full max-h-full object-contain p-2"
+                  onError={() => setLogoError(true)}
+                />
+              ) : (
+                <div className="text-center text-gray-400 text-xs">
+                  <Upload size={24} className="mx-auto mb-1" />
+                  {logoError ? "Failed to load" : "No logo"}
+                </div>
               )}
-              {logoUrl && !logoFile && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => deleteLogo.mutate()}
-                  loading={deleteLogo.isPending}
-                  leftIcon={<Trash2 size={14} />}
-                >
-                  Remove
-                </Button>
-              )}
+            </div>
+            <div className="flex-1">
+              <input
+                type="file"
+                accept="image/jpeg,image/jpg,image/png,image/svg+xml"
+                onChange={handleLogoChange}
+                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                PNG, JPG, SVG up to 5MB
+              </p>
+              <div className="flex gap-2 mt-3">
+                {logoFile && (
+                  <Button
+                    size="sm"
+                    onClick={handleLogoUpload}
+                    loading={logoMutation.isPending}
+                    leftIcon={<Upload size={14} />}
+                  >
+                    Upload
+                  </Button>
+                )}
+                {logoUrl && !logoFile && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => deleteLogo.mutate()}
+                    loading={deleteLogo.isPending}
+                    leftIcon={<Trash2 size={14} />}
+                  >
+                    Remove
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         </div>
+
+        <form
+          onSubmit={handleSubmit((d) => mutation.mutate(d))}
+          className="space-y-4"
+        >
+          <Input
+            label="Organization Name *"
+            {...register("name")}
+            error={errors.name?.message as string}
+          />
+          <Textarea
+            label="Address"
+            {...register("address")}
+            rows={3}
+            placeholder="Full business address"
+          />
+          <div className="grid grid-cols-2 gap-3">
+            <Input label="Phone" {...register("phone")} placeholder="+234..." />
+            <Input
+              label="Email"
+              type="email"
+              {...register("email")}
+              placeholder="info@lab.com"
+            />
+          </div>
+          <Input
+            label="Accreditation Number"
+            {...register("accreditation_number")}
+            placeholder="e.g. ISO 17025:2017"
+          />
+
+          <div className="flex gap-3 pt-2">
+            <Button
+              type="submit"
+              loading={mutation.isPending}
+              leftIcon={<Save size={14} />}
+            >
+              Save Changes
+            </Button>
+          </div>
+        </form>
+      </Card>
+
+      <BankAccountsSection />
+    </div>
+  );
+}
+
+// ── Bank Accounts Section ─────────────────────────────────────────────────────
+
+function BankAccountsSection() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  const [showModal, setShowModal] = useState(false);
+  const [editingAccount, setEditingAccount] = useState<BankAccount | null>(
+    null,
+  );
+
+  const canManage = user ? BANK_ACCOUNT_ROLES.includes(user.role) : false;
+
+  const { data: accounts = [], isLoading } = useQuery<BankAccount[]>({
+    queryKey: ["bank-accounts"],
+    queryFn: () =>
+      api.get("/settings/bank-accounts").then((r) => r.data.data ?? []),
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: (updated: BankAccount[]) =>
+      api.put("/settings/bank-accounts", { accounts: updated }),
+    onSuccess: () => {
+      toast.success("Bank accounts saved");
+      qc.invalidateQueries({ queryKey: ["bank-accounts"] });
+    },
+    onError: (e: any) =>
+      toast.error(e.response?.data?.error || "Failed to save bank accounts"),
+  });
+
+  const handleDelete = (id: string) => {
+    const updated = accounts.filter((a) => a.id !== id);
+    saveMutation.mutate(updated);
+  };
+
+  const handleSave = (account: BankAccount) => {
+    const exists = accounts.some((a) => a.id === account.id);
+    const updated = exists
+      ? accounts.map((a) => (a.id === account.id ? account : a))
+      : [...accounts, account];
+    saveMutation.mutate(updated);
+    setShowModal(false);
+    setEditingAccount(null);
+  };
+
+  return (
+    <Card className="p-6">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <CreditCard size={18} className="text-lab-muted" />
+          <h3 className="font-display text-lg">Bank Accounts</h3>
+        </div>
+        {canManage && (
+          <Button
+            size="sm"
+            leftIcon={<Plus size={14} />}
+            onClick={() => {
+              setEditingAccount(null);
+              setShowModal(true);
+            }}
+          >
+            Add Bank Account
+          </Button>
+        )}
       </div>
 
-      <form
-        onSubmit={handleSubmit((d) => mutation.mutate(d))}
-        className="space-y-4"
-      >
-        <Input
-          label="Organization Name *"
-          {...register("name")}
-          error={errors.name?.message as string}
-        />
-        <Textarea
-          label="Address"
-          {...register("address")}
-          rows={3}
-          placeholder="Full business address"
-        />
-        <div className="grid grid-cols-2 gap-3">
-          <Input label="Phone" {...register("phone")} placeholder="+234..." />
-          <Input
-            label="Email"
-            type="email"
-            {...register("email")}
-            placeholder="info@lab.com"
-          />
+      {isLoading && (
+        <div className="space-y-3">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <Skeleton key={i} className="h-20 w-full" />
+          ))}
         </div>
-        <Input
-          label="Accreditation Number"
-          {...register("accreditation_number")}
-          placeholder="e.g. ISO 17025:2017"
-        />
+      )}
 
+      {!isLoading && accounts.length === 0 && (
+        <EmptyState
+          icon={<CreditCard size={28} className="text-lab-muted" />}
+          title="No bank accounts configured"
+          description="Add bank account details to display payment information on invoices"
+          action={
+            canManage ? (
+              <Button
+                size="sm"
+                leftIcon={<Plus size={14} />}
+                onClick={() => {
+                  setEditingAccount(null);
+                  setShowModal(true);
+                }}
+              >
+                Add Bank Account
+              </Button>
+            ) : undefined
+          }
+        />
+      )}
+
+      {!isLoading && accounts.length > 0 && (
+        <div className="space-y-3">
+          {accounts.map((account) => (
+            <div
+              key={account.id}
+              className="flex items-start justify-between p-4 border border-lab-border rounded-lg bg-gray-50"
+            >
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-sm text-lab-text">
+                    {account.bank_name}
+                  </span>
+                  {account.label && (
+                    <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">
+                      {account.label}
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm text-lab-muted">{account.account_name}</p>
+                <p className="text-sm font-mono text-lab-text">
+                  {account.account_number}
+                </p>
+              </div>
+              {canManage && (
+                <div className="flex gap-1 ml-4 shrink-0">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => {
+                      setEditingAccount(account);
+                      setShowModal(true);
+                    }}
+                  >
+                    <Edit size={14} />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => handleDelete(account.id)}
+                    loading={saveMutation.isPending}
+                  >
+                    <Trash2 size={14} className="text-red-500" />
+                  </Button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showModal && (
+        <BankAccountModal
+          account={editingAccount}
+          onSave={handleSave}
+          onClose={() => {
+            setShowModal(false);
+            setEditingAccount(null);
+          }}
+        />
+      )}
+    </Card>
+  );
+}
+
+// ── Bank Account Modal ────────────────────────────────────────────────────────
+
+function BankAccountModal({
+  account,
+  onSave,
+  onClose,
+}: {
+  account: BankAccount | null;
+  onSave: (account: BankAccount) => void;
+  onClose: () => void;
+}) {
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm({
+    resolver: zodResolver(bankAccountSchema),
+    defaultValues: {
+      account_number: account?.account_number ?? "",
+      account_name: account?.account_name ?? "",
+      bank_name: account?.bank_name ?? "",
+      label: account?.label ?? "",
+    },
+  });
+
+  const onSubmit = (data: z.infer<typeof bankAccountSchema>) => {
+    onSave({
+      id: account?.id ?? crypto.randomUUID(),
+      account_number: data.account_number,
+      account_name: data.account_name,
+      bank_name: data.bank_name,
+      label: data.label || undefined,
+      is_active: account?.is_active ?? true,
+    });
+  };
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={account ? "Edit Bank Account" : "Add Bank Account"}
+    >
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <Input
+          label="Account Number *"
+          {...register("account_number")}
+          error={errors.account_number?.message as string}
+          placeholder="e.g. 0123456789"
+        />
+        <Input
+          label="Account Name *"
+          {...register("account_name")}
+          error={errors.account_name?.message as string}
+          placeholder="e.g. Countrylab Ltd"
+        />
+        <Input
+          label="Bank Name *"
+          {...register("bank_name")}
+          error={errors.bank_name?.message as string}
+          placeholder="e.g. First Bank"
+        />
+        <Input
+          label="Label (optional)"
+          {...register("label")}
+          placeholder="e.g. Main Account"
+        />
         <div className="flex gap-3 pt-2">
           <Button
-            type="submit"
-            loading={mutation.isPending}
-            leftIcon={<Save size={14} />}
+            variant="secondary"
+            type="button"
+            onClick={onClose}
+            className="flex-1"
           >
-            Save Changes
+            Cancel
+          </Button>
+          <Button type="submit" className="flex-1">
+            {account ? "Update" : "Add"} Account
           </Button>
         </div>
       </form>
-    </Card>
+    </Modal>
   );
 }
 
@@ -453,19 +790,6 @@ function SuppliersSettings() {
 }
 
 // ── Supplier Modal ────────────────────────────────────────────────────────────
-
-const supplierSchema = z.object({
-  name: z.string().min(1, "Supplier name is required"),
-  company: z.string().optional(),
-  email: z.string().email().optional().or(z.literal("")),
-  phone: z.string().optional(),
-  address: z.string().optional(),
-  contact_person: z.string().optional(),
-  website: z.string().url().optional().or(z.literal("")),
-  tax_id: z.string().optional(),
-  payment_terms: z.string().optional(),
-  notes: z.string().optional(),
-});
 
 function SupplierModal({
   supplier,

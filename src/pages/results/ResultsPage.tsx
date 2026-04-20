@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { Plus, FileCheck, ArrowLeft, Send, Save, X } from "lucide-react";
 import { api } from "../../lib/api";
 import { AppShell, PageContainer, TopHeader } from "../../components/layout";
+import { TemplateSelector, TemplateParameter } from "./TemplateSelector";
 import {
   Button,
   Input,
@@ -203,7 +204,20 @@ function NewResultForm({
   const [formatType, setFormatType] = useState<
     "standard" | "simple" | "descriptive"
   >("standard");
-  const [parameters, setParameters] = useState([
+  const [parameters, setParameters] = useState<
+    {
+      param_name: string;
+      raw_value: string;
+      calculated_value: string;
+      unit: string;
+      spec_min: string;
+      spec_max: string;
+      data_type: "numerical" | "qualitative";
+      nis_requirements: string;
+      remarks: string;
+      comment: string;
+    }[]
+  >([
     {
       param_name: "",
       raw_value: "",
@@ -211,7 +225,7 @@ function NewResultForm({
       unit: "",
       spec_min: "",
       spec_max: "",
-      data_type: "numerical" as const,
+      data_type: "numerical",
       nis_requirements: "", // For descriptive format
       remarks: "", // For descriptive format
       comment: "", // For simple format
@@ -219,6 +233,8 @@ function NewResultForm({
   ]);
   const [selectedSampleId, setSelectedSampleId] = useState(sampleId || "");
   const [notes, setNotes] = useState("");
+  const [templateId, setTemplateId] = useState<string | null>(null);
+  const [templateVersion, setTemplateVersion] = useState<number | null>(null);
 
   // Load existing result if editing
   const { data: existingResult } = useQuery({
@@ -333,6 +349,51 @@ function NewResultForm({
     setParameters(updated);
   };
 
+  const handleTemplateLoad = (
+    params: TemplateParameter[],
+    id: string,
+    version: number,
+  ) => {
+    setTemplateId(id);
+    setTemplateVersion(version);
+    setParameters(
+      params.map((p) => ({
+        param_name: p.parameter_name,
+        raw_value: "",
+        calculated_value: "",
+        unit: p.unit || "",
+        spec_min: p.spec_min != null ? String(p.spec_min) : "",
+        spec_max: p.spec_max != null ? String(p.spec_max) : "",
+        data_type:
+          p.data_type === "pass_fail"
+            ? ("qualitative" as const)
+            : (p.data_type as "numerical" | "qualitative"),
+        nis_requirements: p.nis_limit || "",
+        remarks: "",
+        comment: "",
+      })),
+    );
+  };
+
+  const handleTemplateClear = () => {
+    setTemplateId(null);
+    setTemplateVersion(null);
+    setParameters([
+      {
+        param_name: "",
+        raw_value: "",
+        calculated_value: "",
+        unit: "",
+        spec_min: "",
+        spec_max: "",
+        data_type: "numerical" as const,
+        nis_requirements: "",
+        remarks: "",
+        comment: "",
+      },
+    ]);
+  };
+
   const handleSave = (submit: boolean = false) => {
     if (!selectedSampleId) {
       toast.error("Please select a sample");
@@ -369,6 +430,8 @@ function NewResultForm({
       sample_id: selectedSampleId,
       parameters: cleanedParams,
       notes,
+      ...(templateId && { template_id: templateId }),
+      ...(templateVersion != null && { template_version: templateVersion }),
     };
 
     if (submit) {
@@ -418,6 +481,10 @@ function NewResultForm({
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-display text-base">Test Parameters</h3>
               <div className="flex items-center gap-3">
+                <TemplateSelector
+                  onTemplateLoad={handleTemplateLoad}
+                  onClear={handleTemplateClear}
+                />
                 <div className="flex items-center gap-2">
                   <label className="text-sm font-medium">Format:</label>
                   <select
