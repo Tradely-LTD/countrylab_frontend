@@ -257,10 +257,20 @@ function OrganizationSettings() {
   const logoUrl = React.useMemo(() => {
     if (!tenant?.logo_url) return null;
     if (tenant.logo_url.startsWith("http")) return tenant.logo_url;
+
+    // For relative paths, prepend the API base URL
+    // In production, this ensures images are loaded from the backend server
+    const baseUrl = import.meta.env.VITE_API_URL || window.location.origin;
     const timestamp = tenant.updated_at
       ? new Date(tenant.updated_at).getTime()
       : Date.now();
-    return `${tenant.logo_url}?v=${timestamp}`;
+
+    // Remove leading slash if present to avoid double slashes
+    const logoPath = tenant.logo_url.startsWith("/")
+      ? tenant.logo_url.slice(1)
+      : tenant.logo_url;
+
+    return `${baseUrl}/${logoPath}?v=${timestamp}`;
   }, [tenant?.logo_url, tenant?.updated_at]);
 
   // Reset logo error when logo_url changes
