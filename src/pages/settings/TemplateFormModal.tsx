@@ -183,7 +183,7 @@ export function TemplateFormModal({ template, onClose }: Props) {
     >
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* Header fields */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Input
             label="Product Name *"
             value={form.name}

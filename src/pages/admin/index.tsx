@@ -68,17 +68,18 @@ export function AssetsPage() {
         }
       />
       <PageContainer>
-        <div className="flex gap-3 mb-4">
+        <div className="flex flex-wrap gap-2 mb-4">
           <Input
             placeholder="Search assets..."
             leftIcon={<Search size={14} />}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="max-w-xs"
+            className="w-full sm:max-w-xs"
           />
         </div>
 
         <div className="card overflow-hidden">
+          <div className="table-wrap">
           <table className="data-table">
             <thead>
               <tr>
@@ -199,6 +200,7 @@ export function AssetsPage() {
               )}
             </tbody>
           </table>
+          </div>
         </div>
 
         {showNew && <NewAssetModal onClose={() => setShowNew(false)} />}
@@ -1052,7 +1054,7 @@ function EditPOModal({ po, onClose }: { po: any; onClose: () => void }) {
           )}
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Input
             label="Supplier Name"
             value={supplierName}
@@ -1124,7 +1126,7 @@ function ViewRequisitionModal({
       size="lg"
     >
       <div className="space-y-4">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <p className="text-xs text-lab-muted">Department</p>
             <p className="text-sm font-medium">
@@ -1387,7 +1389,7 @@ function NewRequisitionModal({
       size="xl"
     >
       <div className="space-y-4">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Input
             label="Department"
             value={department}
@@ -1480,7 +1482,7 @@ function NewRequisitionModal({
                     )}
                   </div>
                 )}
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <Input
                     type="number"
                     label="Quantity"
@@ -1758,7 +1760,7 @@ export function ClientsPage() {
       <PageContainer>
         {/* Analytics Summary Panel */}
         {summary && (
-          <div className="grid grid-cols-3 gap-4 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
             <div className="card p-4 text-center">
               <p className="text-2xl font-bold text-primary-600">
                 {summary.total ?? 0}
@@ -1787,7 +1789,7 @@ export function ClientsPage() {
             leftIcon={<Search size={14} />}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="max-w-xs"
+            className="w-full sm:max-w-xs"
           />
           <select
             value={createdBy}
@@ -1820,6 +1822,7 @@ export function ClientsPage() {
         </div>
 
         <div className="card overflow-hidden">
+          <div className="table-wrap">
           <table className="data-table">
             <thead>
               <tr>
@@ -1912,6 +1915,7 @@ export function ClientsPage() {
               )}
             </tbody>
           </table>
+          </div>
         </div>
         {showNew && <NewClientModal onClose={() => setShowNew(false)} />}
         {viewingClient && (
@@ -1981,7 +1985,7 @@ function InteractionModal({
         {/* Log form */}
         <div className="p-4 bg-lab-bg rounded-lg space-y-3">
           <h3 className="font-semibold text-sm">Log New Interaction</h3>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-lab-muted mb-1">
                 Type
@@ -2238,7 +2242,7 @@ function ClientHistoryModal({
       <div className="space-y-4">
         {/* Client Info */}
         <div className="p-4 bg-lab-bg rounded-lg">
-          <div className="grid grid-cols-2 gap-4 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
             <div>
               <p className="text-lab-muted">Company</p>
               <p className="font-medium">{client.company || "—"}</p>
@@ -2577,11 +2581,12 @@ export function SuppliersPage() {
             leftIcon={<Search size={14} />}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="max-w-md"
+            className="w-full sm:max-w-md"
           />
         </div>
 
         <div className="card overflow-hidden">
+          <div className="table-wrap">
           <table className="data-table">
             <thead>
               <tr>
@@ -2686,6 +2691,7 @@ export function SuppliersPage() {
               )}
             </tbody>
           </table>
+          </div>
         </div>
 
         {showModal && (
@@ -2765,7 +2771,7 @@ function SupplierModal({
         onSubmit={handleSubmit((d) => mutation.mutate(d))}
         className="space-y-4"
       >
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Input
             label="Supplier Name *"
             {...register("name")}
@@ -2876,7 +2882,7 @@ function SupplierHistoryModal({
         <div className="space-y-4">
           {/* Supplier Info */}
           <div className="p-4 bg-lab-bg rounded-lg">
-            <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
               <div>
                 <p className="text-lab-muted">Company</p>
                 <p className="font-medium">{supplier.company || "—"}</p>

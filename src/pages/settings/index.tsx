@@ -256,21 +256,24 @@ function OrganizationSettings() {
 
   const logoUrl = React.useMemo(() => {
     if (!tenant?.logo_url) return null;
-    if (tenant.logo_url.startsWith("http")) return tenant.logo_url;
 
-    // For relative paths, prepend the API base URL
-    // In production, this ensures images are loaded from the backend server
-    const baseUrl = import.meta.env.VITE_API_URL || window.location.origin;
     const timestamp = tenant.updated_at
       ? new Date(tenant.updated_at).getTime()
       : Date.now();
 
-    // Remove leading slash if present to avoid double slashes
-    const logoPath = tenant.logo_url.startsWith("/")
-      ? tenant.logo_url.slice(1)
-      : tenant.logo_url;
+    // Absolute URLs (e.g. from a CDN) — use as-is
+    if (tenant.logo_url.startsWith("http")) {
+      return `${tenant.logo_url}?v=${timestamp}`;
+    }
 
-    return `${baseUrl}/${logoPath}?v=${timestamp}`;
+    // Relative paths like /uploads/assets/... — keep them relative so they
+    // go through the Vite proxy in development and the reverse proxy in
+    // production, avoiding any cross-origin / CSP issues.
+    const logoPath = tenant.logo_url.startsWith("/")
+      ? tenant.logo_url
+      : `/${tenant.logo_url}`;
+
+    return `${logoPath}?v=${timestamp}`;
   }, [tenant?.logo_url, tenant?.updated_at]);
 
   // Reset logo error when logo_url changes
@@ -405,7 +408,7 @@ function OrganizationSettings() {
             rows={3}
             placeholder="Full business address"
           />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input label="Phone" {...register("phone")} placeholder="+234..." />
             <Input
               label="Email"
@@ -843,7 +846,7 @@ function SupplierModal({
         onSubmit={handleSubmit((d) => mutation.mutate(d))}
         className="space-y-4"
       >
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Input
             label="Supplier Name *"
             {...register("name")}
@@ -924,7 +927,7 @@ function CategoriesSettings() {
         <p className="text-sm text-lab-muted mb-4">
           These categories are used when adding reagents to inventory
         </p>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {[
             "Acid",
             "Base",
@@ -982,7 +985,7 @@ function CategoriesSettings() {
         <p className="text-sm text-lab-muted mb-4">
           Available units for reagent quantities
         </p>
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
           {[
             "mL",
             "L",

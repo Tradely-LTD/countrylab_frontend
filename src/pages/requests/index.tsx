@@ -57,13 +57,13 @@ export function RequestsListPage() {
       />
       <PageContainer>
         {/* Filters */}
-        <div className="flex gap-3 mb-4">
+        <div className="flex flex-wrap gap-2 mb-4">
           <Input
             placeholder="Search by request number or product..."
             leftIcon={<Search size={14} />}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="max-w-xs"
+            className="w-full sm:max-w-xs"
           />
           <Select
             options={[
@@ -83,6 +83,7 @@ export function RequestsListPage() {
 
         {/* Table */}
         <div className="card overflow-hidden">
+          <div className="table-wrap">
           <table className="data-table">
             <thead>
               <tr>
@@ -167,6 +168,7 @@ export function RequestsListPage() {
               )}
             </tbody>
           </table>
+          </div>
         </div>
       </PageContainer>
     </AppShell>
@@ -252,7 +254,7 @@ export function RequestDetailPage() {
               <h3 className="font-display text-lg font-semibold mb-4">
                 Client Information
               </h3>
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                 <div>
                   <p className="text-gray-500">Name</p>
                   <p className="font-medium">{data.client?.name}</p>
@@ -277,7 +279,7 @@ export function RequestDetailPage() {
               <h3 className="font-display text-lg font-semibold mb-4">
                 Sample Information
               </h3>
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                 <div>
                   <p className="text-gray-500">Product Name</p>
                   <p className="font-medium">{data.product_name || "—"}</p>

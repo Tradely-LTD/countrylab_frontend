@@ -177,13 +177,13 @@ export default function DashboardPage() {
         title={`Good ${getTimeOfDay()}, ${user?.full_name?.split(" ")[0]}`}
         subtitle="Here's what's happening in the lab today"
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 overflow-x-auto">
             {["today", "yesterday", "week", "month"].map((filter) => (
               <button
                 key={filter}
                 onClick={() => setDateFilter(filter as any)}
                 className={clsx(
-                  "px-3 py-1.5 text-xs font-medium rounded-lg transition-colors",
+                  "px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors whitespace-nowrap",
                   dateFilter === filter
                     ? "bg-primary-600 text-white"
                     : "bg-white text-lab-text hover:bg-lab-bg border border-lab-border",

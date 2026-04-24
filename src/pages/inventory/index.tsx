@@ -169,7 +169,7 @@ export function InventoryPage() {
       <PageContainer>
         {/* Alert Summary */}
         {alerts && (
-          <div className="grid grid-cols-3 gap-3 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
             {[
               {
                 label: "Low Stock",
@@ -207,13 +207,13 @@ export function InventoryPage() {
         )}
 
         {/* Filters */}
-        <div className="flex gap-3 mb-4">
+        <div className="flex flex-wrap gap-2 mb-4">
           <Input
             placeholder="Search items..."
             leftIcon={<Search size={14} />}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="max-w-xs"
+            className="w-full sm:max-w-xs"
           />
           <div className="flex rounded-lg border border-lab-border overflow-hidden">
             {[
@@ -239,6 +239,7 @@ export function InventoryPage() {
 
         {/* Stock Table */}
         <div className="card overflow-hidden">
+          <div className="table-wrap">
           <table className="data-table">
             <thead>
               <tr>
@@ -407,6 +408,7 @@ export function InventoryPage() {
               )}
             </tbody>
           </table>
+          </div>
         </div>
 
         {showNewModal && (
@@ -545,7 +547,7 @@ function NewItemModal({
         onSubmit={handleSubmit((d) => mutation.mutate(d))}
         className="space-y-4"
       >
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Select
             label="Product Type *"
             {...register("product_type")}
@@ -635,7 +637,7 @@ function NewItemModal({
               { value: "Other", label: "Other" },
             ]}
           />
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <Input
               label="Quantity *"
               type="number"

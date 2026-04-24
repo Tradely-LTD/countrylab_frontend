@@ -11,7 +11,6 @@ import {
   FileText,
   ClipboardList,
   LogOut,
-  Bell,
   ChevronDown,
   Settings,
   TestTubeDiagonal,
@@ -23,7 +22,7 @@ import {
   WifiOff,
 } from "lucide-react";
 import { useAuth } from "../../lib/auth";
-import { useState } from "react";
+import { useState, useContext, createContext } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const NAV_ITEMS = [
@@ -113,6 +112,20 @@ const NAV_ITEMS = [
   },
 ];
 
+// ─── Layout Context ────────────────────────────────────────────────────────────
+interface LayoutContextType {
+  collapsed: boolean;
+  mobileOpen: boolean;
+  setMobileOpen: (v: boolean) => void;
+}
+
+const LayoutContext = createContext<LayoutContextType>({
+  collapsed: false,
+  mobileOpen: false,
+  setMobileOpen: () => {},
+});
+
+// ─── Sidebar ──────────────────────────────────────────────────────────────────
 interface SidebarProps {
   collapsed?: boolean;
   onCollapse?: (v: boolean) => void;
@@ -121,6 +134,7 @@ interface SidebarProps {
 export function Sidebar({ collapsed, onCollapse }: SidebarProps) {
   const { user, logout, isRole } = useAuth();
   const navigate = useNavigate();
+  const { mobileOpen, setMobileOpen } = useContext(LayoutContext);
 
   const handleLogout = async () => {
     await logout();
@@ -132,6 +146,8 @@ export function Sidebar({ collapsed, onCollapse }: SidebarProps) {
       className={clsx(
         "flex flex-col h-screen bg-white border-r border-lab-border transition-all duration-300 fixed left-0 top-0 z-30",
         collapsed ? "w-16" : "w-[240px]",
+        // On mobile: hidden off-screen by default, slides in when mobileOpen
+        mobileOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full md:translate-x-0",
       )}
     >
       {/* Logo */}
@@ -154,15 +170,23 @@ export function Sidebar({ collapsed, onCollapse }: SidebarProps) {
             <TestTubeDiagonal size={18} className="text-white" />
           </div>
         )}
+        {/* Desktop: collapse toggle */}
         <button
           onClick={() => onCollapse?.(!collapsed)}
-          className="p-1.5 rounded-lg hover:bg-lab-bg text-lab-muted ml-auto"
+          className="p-1.5 rounded-lg hover:bg-lab-bg text-lab-muted ml-auto hidden md:flex"
         >
           {collapsed ? (
             <ChevronDown size={14} className="-rotate-90" />
           ) : (
             <Menu size={14} />
           )}
+        </button>
+        {/* Mobile: close button */}
+        <button
+          onClick={() => setMobileOpen(false)}
+          className="p-1.5 rounded-lg hover:bg-lab-bg text-lab-muted ml-auto md:hidden"
+        >
+          <X size={16} />
         </button>
       </div>
 
@@ -190,6 +214,7 @@ export function Sidebar({ collapsed, onCollapse }: SidebarProps) {
                       )
                     }
                     title={collapsed ? item.label : undefined}
+                    onClick={() => setMobileOpen(false)}
                   >
                     <item.icon size={17} className="shrink-0" />
                     {!collapsed && <span>{item.label}</span>}
@@ -264,34 +289,50 @@ export function TopHeader({
   sidebarCollapsed,
 }: TopHeaderProps) {
   const navigate = useNavigate();
-  const marginLeft = sidebarCollapsed ? "ml-16" : "ml-[240px]";
+  const { collapsed, mobileOpen, setMobileOpen } = useContext(LayoutContext);
+
+  // Prefer context value; fall back to prop for standalone use
+  const isCollapsed = sidebarCollapsed !== undefined ? sidebarCollapsed : collapsed;
+  const marginLeft = isCollapsed ? "md:ml-16" : "md:ml-[240px]";
 
   return (
     <header
       className={clsx(
-        "fixed top-0 right-0 z-20 bg-white/90 backdrop-blur border-b border-lab-border h-16 flex items-center px-6 transition-all duration-300",
+        "fixed top-0 left-0 right-0 z-20 bg-white/90 backdrop-blur border-b border-lab-border h-16 flex items-center px-4 md:px-6 transition-all duration-300",
         marginLeft,
       )}
     >
       <div className="flex items-center justify-between w-full">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 md:gap-3 min-w-0">
+          {/* Mobile hamburger */}
+          <button
+            onClick={() => setMobileOpen(!mobileOpen)}
+            className="p-2 rounded-lg hover:bg-lab-bg text-lab-muted md:hidden shrink-0"
+            aria-label="Open navigation menu"
+          >
+            <Menu size={18} />
+          </button>
           {backButton && (
             <button
               onClick={() => navigate(-1)}
-              className="p-2 rounded-lg hover:bg-lab-bg text-lab-muted"
+              className="p-2 rounded-lg hover:bg-lab-bg text-lab-muted shrink-0"
             >
               <ChevronDown size={16} className="rotate-90" />
             </button>
           )}
-          {icon && <div className="text-primary-600">{icon}</div>}
-          <div>
-            <h1 className="font-display text-lg text-lab-text leading-tight">
+          {icon && <div className="text-primary-600 shrink-0">{icon}</div>}
+          <div className="min-w-0">
+            <h1 className="font-display text-base md:text-lg text-lab-text leading-tight truncate">
               {title}
             </h1>
-            {subtitle && <p className="text-xs text-lab-muted">{subtitle}</p>}
+            {subtitle && (
+              <p className="text-xs text-lab-muted hidden sm:block truncate">
+                {subtitle}
+              </p>
+            )}
           </div>
         </div>
-        <div className="flex items-center gap-2">{actions}</div>
+        <div className="flex items-center gap-2 shrink-0">{actions}</div>
       </div>
     </header>
   );
@@ -300,29 +341,46 @@ export function TopHeader({
 // ─── App Shell ────────────────────────────────────────────────────────────────
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const { networkError } = useAuth();
 
   return (
-    <div className="min-h-screen bg-lab-bg">
-      <Sidebar collapsed={collapsed} onCollapse={setCollapsed} />
-      <main
-        className={clsx(
-          "transition-all duration-300 pt-16 min-h-screen",
-          collapsed ? "ml-16" : "ml-[240px]",
-        )}
-      >
-        {networkError && (
-          <div className="flex items-center gap-2 bg-red-50 border-b border-red-200 px-6 py-2.5 text-sm text-red-700">
-            <WifiOff size={15} className="shrink-0" />
-            <span>
-              Cannot reach the server. Check your internet connection or contact
-              support.
-            </span>
-          </div>
-        )}
-        {children}
-      </main>
-    </div>
+    <LayoutContext.Provider value={{ collapsed, mobileOpen, setMobileOpen }}>
+      <div className="min-h-screen bg-lab-bg">
+        {/* Mobile backdrop overlay */}
+        <AnimatePresence>
+          {mobileOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 bg-black/50 z-20 md:hidden"
+              onClick={() => setMobileOpen(false)}
+            />
+          )}
+        </AnimatePresence>
+
+        <Sidebar collapsed={collapsed} onCollapse={setCollapsed} />
+        <main
+          className={clsx(
+            "transition-all duration-300 pt-16 min-h-screen",
+            collapsed ? "md:ml-16" : "md:ml-[240px]",
+          )}
+        >
+          {networkError && (
+            <div className="flex items-center gap-2 bg-red-50 border-b border-red-200 px-4 md:px-6 py-2.5 text-sm text-red-700">
+              <WifiOff size={15} className="shrink-0" />
+              <span>
+                Cannot reach the server. Check your internet connection or
+                contact support.
+              </span>
+            </div>
+          )}
+          {children}
+        </main>
+      </div>
+    </LayoutContext.Provider>
   );
 }
 
@@ -335,7 +393,7 @@ export function PageContainer({
   className?: string;
 }) {
   return (
-    <div className={clsx("p-6 max-w-screen-2xl mx-auto", className)}>
+    <div className={clsx("p-4 md:p-6 max-w-screen-2xl mx-auto", className)}>
       {children}
     </div>
   );

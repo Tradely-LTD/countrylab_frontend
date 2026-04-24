@@ -78,13 +78,13 @@ export function SamplesListPage() {
       />
       <PageContainer>
         {/* Filters */}
-        <div className="flex gap-3 mb-4">
+        <div className="flex flex-wrap gap-2 mb-4">
           <Input
             placeholder="Search by name or ULID..."
             leftIcon={<Search size={14} />}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="max-w-xs"
+            className="w-full sm:max-w-xs"
           />
           <Select
             options={[
@@ -97,12 +97,13 @@ export function SamplesListPage() {
             ]}
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="w-44"
+            className="w-full sm:w-44"
           />
         </div>
 
         {/* Table */}
         <div className="card overflow-hidden">
+          <div className="table-wrap">
           <table className="data-table">
             <thead>
               <tr>
@@ -189,6 +190,7 @@ export function SamplesListPage() {
               )}
             </tbody>
           </table>
+          </div>
           {data?.pagination && (
             <Pagination
               page={data.pagination.page}
@@ -316,7 +318,7 @@ function NewSampleModal({ onClose }: { onClose: () => void }) {
             placeholder="e.g. Borehole Water Sample A"
             {...register("name")}
           />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Select
               label="Sample Matrix"
               options={[
@@ -344,7 +346,7 @@ function NewSampleModal({ onClose }: { onClose: () => void }) {
           <h3 className="font-display text-sm font-semibold text-gray-700 border-b pb-2">
             Sample Details
           </h3>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Input
               label="Container Type"
               placeholder="e.g. Plastic Bottle"
@@ -361,7 +363,7 @@ function NewSampleModal({ onClose }: { onClose: () => void }) {
               {...register("batch_number")}
             />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Select
               label="Sample Condition"
               options={[
@@ -396,7 +398,7 @@ function NewSampleModal({ onClose }: { onClose: () => void }) {
             placeholder="e.g. ABC Foods Limited"
             {...register("manufacturer")}
           />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input
               label="Production Date"
               type="date"
@@ -420,7 +422,7 @@ function NewSampleModal({ onClose }: { onClose: () => void }) {
           <h3 className="font-display text-sm font-semibold text-gray-700 border-b pb-2">
             Lab Management
           </h3>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Select
               label="Assign Analyst"
               options={(analysts || []).map((a: any) => ({
@@ -533,7 +535,7 @@ export function SampleDetailPage() {
                 <StatusBadge status={data.status} />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <p className="label">Matrix</p>
                   <p className="text-sm">{data.matrix || "—"}</p>

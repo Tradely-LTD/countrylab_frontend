@@ -87,7 +87,7 @@ export function VerifyPage() {
                   {/* Sample Info */}
                   <div>
                     <h3 className="label mb-3">Sample Information</h3>
-                    <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                       <div>
                         <p className="text-lab-muted text-xs">Sample ID</p>
                         <p className="font-mono font-semibold">

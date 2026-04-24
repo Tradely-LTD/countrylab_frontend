@@ -61,7 +61,7 @@ export function ResultsListPage() {
       />
       <PageContainer>
         {/* Filters */}
-        <div className="flex gap-3 mb-4">
+        <div className="flex flex-wrap gap-2 mb-4">
           <Select
             options={[
               { value: "", label: "All Statuses" },
@@ -73,12 +73,13 @@ export function ResultsListPage() {
             ]}
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="w-44"
+            className="w-full sm:w-44"
           />
         </div>
 
         {/* Table */}
         <div className="card overflow-hidden">
+          <div className="table-wrap">
           <table className="data-table">
             <thead>
               <tr>
@@ -169,6 +170,7 @@ export function ResultsListPage() {
               )}
             </tbody>
           </table>
+          </div>
         </div>
       </PageContainer>
     </AppShell>

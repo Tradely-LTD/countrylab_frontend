@@ -174,7 +174,7 @@ export function ResultDetailPage() {
               <h3 className="font-display text-base mb-4">
                 Sample Information
               </h3>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <p className="label">Sample ID</p>
                   <p className="text-sm font-mono">

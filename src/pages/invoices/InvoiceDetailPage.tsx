@@ -337,7 +337,7 @@ export default function InvoiceDetailPage() {
                 </div>
 
                 {/* Biller and Billed To - Side by Side */}
-                <div className="grid grid-cols-3 gap-4 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
                   {/* From */}
                   <div>
                     <h3 className="font-semibold text-gray-700 mb-1">FROM</h3>
