@@ -256,24 +256,10 @@ function OrganizationSettings() {
 
   const logoUrl = React.useMemo(() => {
     if (!tenant?.logo_url) return null;
-
     const timestamp = tenant.updated_at
       ? new Date(tenant.updated_at).getTime()
       : Date.now();
-
-    // Absolute URLs (e.g. from a CDN) — use as-is
-    if (tenant.logo_url.startsWith("http")) {
-      return `${tenant.logo_url}?v=${timestamp}`;
-    }
-
-    // Relative paths like /uploads/assets/... — keep them relative so they
-    // go through the Vite proxy in development and the reverse proxy in
-    // production, avoiding any cross-origin / CSP issues.
-    const logoPath = tenant.logo_url.startsWith("/")
-      ? tenant.logo_url
-      : `/${tenant.logo_url}`;
-
-    return `${logoPath}?v=${timestamp}`;
+    return `${tenant.logo_url}?v=${timestamp}`;
   }, [tenant?.logo_url, tenant?.updated_at]);
 
   // Reset logo error when logo_url changes

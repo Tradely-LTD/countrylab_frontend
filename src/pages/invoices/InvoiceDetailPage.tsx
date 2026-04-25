@@ -114,11 +114,7 @@ export default function InvoiceDetailPage() {
 
   const org = invoice.organization;
   const client = invoice.client;
-  const logoUrl = org?.logo_url
-    ? org.logo_url.startsWith("http")
-      ? org.logo_url
-      : `${org.logo_url}?v=${org.updated_at ? new Date(org.updated_at).getTime() : Date.now()}`
-    : null;
+  const logoUrl = org?.logo_url ?? null;
 
   return (
     <>
