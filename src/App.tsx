@@ -35,6 +35,7 @@ import { SettingsPage } from "./pages/settings";
 import InvoicesPage from "./pages/invoices";
 import InvoiceDetailPage from "./pages/invoices/InvoiceDetailPage";
 import CreateInvoicePage from "./pages/invoices/CreateInvoicePage";
+import EditInvoicePage from "./pages/invoices/EditInvoicePage";
 import { Spinner } from "./components/ui";
 import ReportsPage from "./pages/reports";
 
@@ -164,6 +165,14 @@ function App() {
                 }
               />
               <Route
+                path="/samples/new"
+                element={
+                  <ProtectedRoute>
+                    <SamplesListPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
                 path="/samples/:id"
                 element={
                   <ProtectedRoute>
@@ -236,7 +245,23 @@ function App() {
                 }
               />
               <Route
+                path="/assets/new"
+                element={
+                  <ProtectedRoute>
+                    <AssetsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
                 path="/procurement"
+                element={
+                  <ProtectedRoute>
+                    <ProcurementPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/procurement/new"
                 element={
                   <ProtectedRoute>
                     <ProcurementPage />
@@ -296,6 +321,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <InvoiceDetailPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/invoices/:id/edit"
+                element={
+                  <ProtectedRoute>
+                    <EditInvoicePage />
                   </ProtectedRoute>
                 }
               />
