@@ -125,7 +125,7 @@ export function generatePDFReport(opts: ReportOptions) {
   }
 
   if (opts.mode === "preview") {
-    const url = doc.output("bloburl") as string;
+    const url = doc.output("bloburl") as unknown as string;
     window.open(url, "_blank");
   } else {
     doc.save(opts.filename);

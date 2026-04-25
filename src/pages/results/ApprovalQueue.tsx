@@ -118,7 +118,7 @@ export function ApprovalQueuePage() {
                         <span>Analyst: <span className="font-medium text-lab-text">{item.analyst?.full_name}</span></span>
                       </p>
                     </div>
-                    <StatusBadge status={item.overall_status} className="shrink-0" />
+                    <span className="shrink-0"><StatusBadge status={item.overall_status} /></span>
                   </div>
 
                   {item.notes && (
