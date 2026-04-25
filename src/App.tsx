@@ -20,6 +20,8 @@ import { ApprovalQueuePage } from "./pages/results/ApprovalQueue";
 import { RequestsListPage, RequestDetailPage } from "./pages/requests";
 import { PublicRequestForm } from "./pages/public/RequestForm";
 import { LandingPage } from "./pages/public/LandingPage";
+import { ReferralPage } from "./pages/public/ReferralPage";
+import MarketersPage from "./pages/marketers";
 import { InventoryPage } from "./pages/inventory";
 import {
   AssetsPage,
@@ -34,6 +36,7 @@ import InvoicesPage from "./pages/invoices";
 import InvoiceDetailPage from "./pages/invoices/InvoiceDetailPage";
 import CreateInvoicePage from "./pages/invoices/CreateInvoicePage";
 import { Spinner } from "./components/ui";
+import ReportsPage from "./pages/reports";
 
 // ─── Error Boundary ───────────────────────────────────────────────────────────
 interface ErrorBoundaryState {
@@ -141,6 +144,7 @@ function App() {
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
               <Route path="/verify/:qrHash" element={<VerifyPage />} />
+              <Route path="/ref/:code" element={<ReferralPage />} />
 
               {/* Protected */}
               <Route
@@ -300,6 +304,22 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <SettingsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/marketers"
+                element={
+                  <ProtectedRoute>
+                    <MarketersPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/reports"
+                element={
+                  <ProtectedRoute>
+                    <ReportsPage />
                   </ProtectedRoute>
                 }
               />

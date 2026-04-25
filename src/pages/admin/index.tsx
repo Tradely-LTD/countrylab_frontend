@@ -20,6 +20,9 @@ import {
   Send,
   Check,
   X,
+  KeyRound,
+  UserX,
+  UserCheck,
 } from "lucide-react";
 import { api } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
@@ -414,9 +417,11 @@ export function ProcurementPage() {
   const [viewPO, setViewPO] = useState<any>(null);
   const [tab, setTab] = useState<"requisitions" | "pos">("requisitions");
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-  const [menuPositions, setMenuPositions] = useState<
-    Record<string, "top" | "bottom">
-  >({});
+  const [menuRect, setMenuRect] = useState<{
+    top: number;
+    bottom: number;
+    right: number;
+  } | null>(null);
   const qc = useQueryClient();
   const { user } = useAuth();
   const isSuperAdmin = user?.role === "super_admin";
@@ -424,20 +429,26 @@ export function ProcurementPage() {
   const handleMenuToggle = (id: string, event: React.MouseEvent) => {
     if (openMenuId === id) {
       setOpenMenuId(null);
+      setMenuRect(null);
       return;
     }
-
-    const button = event.currentTarget as HTMLElement;
-    const rect = button.getBoundingClientRect();
-    const spaceBelow = window.innerHeight - rect.bottom;
-
-    // If less than 300px space below, position upward
-    setMenuPositions((prev) => ({
-      ...prev,
-      [id]: spaceBelow < 300 ? "top" : "bottom",
-    }));
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    setMenuRect({ top: rect.top, bottom: rect.bottom, right: rect.right });
     setOpenMenuId(id);
   };
+
+  const menuStyle =
+    menuRect && window.innerHeight - menuRect.bottom > 220
+      ? {
+          top: menuRect.bottom + 4,
+          right: window.innerWidth - menuRect.right,
+        }
+      : menuRect
+        ? {
+            bottom: window.innerHeight - menuRect.top + 4,
+            right: window.innerWidth - menuRect.right,
+          }
+        : {};
 
   const { data: requisitions } = useQuery({
     queryKey: ["requisitions"],
@@ -618,7 +629,8 @@ export function ProcurementPage() {
         </div>
 
         {tab === "requisitions" && (
-          <div className="card">
+          <div className="card overflow-visible">
+            <div className="table-wrap">
             <table className="data-table">
               <thead>
                 <tr>
@@ -629,7 +641,7 @@ export function ProcurementPage() {
                   <th>Prepared By</th>
                   <th>Status</th>
                   <th>Date</th>
-                  <th>Actions</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -663,156 +675,143 @@ export function ProcurementPage() {
                       {format(new Date(r.created_at), "dd MMM yyyy")}
                     </td>
                     <td>
-                      <div className="relative">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={(e) => handleMenuToggle(r.id, e)}
-                        >
-                          <MoreVertical size={16} />
-                        </Button>
-                        {openMenuId === r.id && (
-                          <>
-                            <div
-                              className="fixed inset-0 z-10"
-                              onClick={() => setOpenMenuId(null)}
-                            />
-                            <div
-                              className="fixed w-48 bg-white rounded-lg shadow-lg border border-lab-border z-20 py-1"
-                              style={{
-                                top:
-                                  menuPositions[r.id] === "top"
-                                    ? `${(document.querySelector(`[data-menu-id="${r.id}"]`) as HTMLElement)?.getBoundingClientRect().top - 8}px`
-                                    : `${(document.querySelector(`[data-menu-id="${r.id}"]`) as HTMLElement)?.getBoundingClientRect().bottom + 4}px`,
-                                right: `${window.innerWidth - (document.querySelector(`[data-menu-id="${r.id}"]`) as HTMLElement)?.getBoundingClientRect().right}px`,
-                                transform:
-                                  menuPositions[r.id] === "top"
-                                    ? "translateY(-100%)"
-                                    : "none",
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={(e) => handleMenuToggle(r.id, e)}
+                      >
+                        <MoreVertical size={16} />
+                      </Button>
+                      {openMenuId === r.id && menuRect && (
+                        <>
+                          <div
+                            className="fixed inset-0 z-10"
+                            onClick={() => setOpenMenuId(null)}
+                          />
+                          <div
+                            className="fixed w-48 bg-white rounded-lg shadow-lg border border-lab-border z-20 py-1"
+                            style={menuStyle}
+                          >
+                            <button
+                              className="w-full px-4 py-2 text-left text-sm hover:bg-lab-bg flex items-center gap-2"
+                              onClick={() => {
+                                setViewTarget(r);
+                                setOpenMenuId(null);
                               }}
                             >
-                              <button
-                                className="w-full px-4 py-2 text-left text-sm hover:bg-lab-bg flex items-center gap-2"
-                                onClick={() => {
-                                  setViewTarget(r);
-                                  setOpenMenuId(null);
-                                }}
-                              >
-                                <Eye size={14} />
-                                View Details
-                              </button>
-                              <button
-                                className="w-full px-4 py-2 text-left text-sm hover:bg-lab-bg flex items-center gap-2"
-                                onClick={() => {
-                                  printRequisition(r);
-                                  setOpenMenuId(null);
-                                }}
-                              >
-                                <Printer size={14} />
-                                Print
-                              </button>
-                              {r.status === "draft" && (
-                                <>
-                                  <button
-                                    className="w-full px-4 py-2 text-left text-sm hover:bg-lab-bg flex items-center gap-2"
-                                    onClick={() => {
-                                      setEditTarget(r);
-                                      setOpenMenuId(null);
-                                    }}
-                                  >
-                                    <Edit size={14} />
-                                    Edit
-                                  </button>
-                                  <button
-                                    className="w-full px-4 py-2 text-left text-sm hover:bg-lab-bg flex items-center gap-2"
-                                    onClick={() => {
-                                      setOpenMenuId(null);
-                                      if (
-                                        confirm(
-                                          "Submit this requisition for approval?",
+                              <Eye size={14} />
+                              View Details
+                            </button>
+                            <button
+                              className="w-full px-4 py-2 text-left text-sm hover:bg-lab-bg flex items-center gap-2"
+                              onClick={() => {
+                                printRequisition(r);
+                                setOpenMenuId(null);
+                              }}
+                            >
+                              <Printer size={14} />
+                              Print
+                            </button>
+                            {r.status === "draft" && (
+                              <>
+                                <button
+                                  className="w-full px-4 py-2 text-left text-sm hover:bg-lab-bg flex items-center gap-2"
+                                  onClick={() => {
+                                    setEditTarget(r);
+                                    setOpenMenuId(null);
+                                  }}
+                                >
+                                  <Edit size={14} />
+                                  Edit
+                                </button>
+                                <button
+                                  className="w-full px-4 py-2 text-left text-sm hover:bg-lab-bg flex items-center gap-2"
+                                  onClick={() => {
+                                    setOpenMenuId(null);
+                                    if (
+                                      confirm(
+                                        "Submit this requisition for approval?",
+                                      )
+                                    ) {
+                                      api
+                                        .patch(
+                                          `/procurement/requisitions/${r.id}/submit`,
                                         )
-                                      ) {
-                                        api
-                                          .patch(
-                                            `/procurement/requisitions/${r.id}/submit`,
-                                          )
-                                          .then(() => {
-                                            toast.success(
-                                              "Requisition submitted for approval",
-                                            );
-                                            qc.invalidateQueries({
-                                              queryKey: ["requisitions"],
-                                            });
-                                          })
-                                          .catch((e) =>
-                                            toast.error(
-                                              e.response?.data?.error ||
-                                                "Failed",
-                                            ),
+                                        .then(() => {
+                                          toast.success(
+                                            "Requisition submitted for approval",
                                           );
-                                      }
-                                    }}
-                                  >
-                                    <Send size={14} />
-                                    Submit for Approval
-                                  </button>
-                                </>
-                              )}
-                              {r.status === "pending_approval" && (
-                                <>
-                                  <button
-                                    className="w-full px-4 py-2 text-left text-sm hover:bg-green-50 text-green-700 flex items-center gap-2"
-                                    onClick={() => {
-                                      setOpenMenuId(null);
-                                      approveMutation.mutate({
-                                        id: r.id,
-                                        action: "approve",
-                                      });
-                                    }}
-                                  >
-                                    <Check size={14} />
-                                    Approve
-                                  </button>
-                                  <button
-                                    className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 text-red-700 flex items-center gap-2"
-                                    onClick={() => {
-                                      setOpenMenuId(null);
-                                      approveMutation.mutate({
-                                        id: r.id,
-                                        action: "reject",
-                                      });
-                                    }}
-                                  >
-                                    <X size={14} />
-                                    Reject
-                                  </button>
-                                </>
-                              )}
-                              {isSuperAdmin && (
-                                <>
-                                  <div className="border-t border-lab-border my-1" />
-                                  <button
-                                    className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 text-red-700 flex items-center gap-2"
-                                    onClick={() => {
-                                      setOpenMenuId(null);
-                                      if (
-                                        confirm(
-                                          `Delete requisition ${r.requisition_number}? This cannot be undone.`,
-                                        )
-                                      ) {
-                                        deleteRequisitionMutation.mutate(r.id);
-                                      }
-                                    }}
-                                  >
-                                    <Trash2 size={14} />
-                                    Delete
-                                  </button>
-                                </>
-                              )}
-                            </div>
-                          </>
-                        )}
-                      </div>
+                                          qc.invalidateQueries({
+                                            queryKey: ["requisitions"],
+                                          });
+                                        })
+                                        .catch((e) =>
+                                          toast.error(
+                                            e.response?.data?.error || "Failed",
+                                          ),
+                                        );
+                                    }
+                                  }}
+                                >
+                                  <Send size={14} />
+                                  Submit for Approval
+                                </button>
+                              </>
+                            )}
+                            {r.status === "pending_approval" && (
+                              <>
+                                <button
+                                  className="w-full px-4 py-2 text-left text-sm hover:bg-green-50 text-green-700 flex items-center gap-2"
+                                  onClick={() => {
+                                    setOpenMenuId(null);
+                                    approveMutation.mutate({
+                                      id: r.id,
+                                      action: "approve",
+                                    });
+                                  }}
+                                >
+                                  <Check size={14} />
+                                  Approve
+                                </button>
+                                <button
+                                  className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 text-red-700 flex items-center gap-2"
+                                  onClick={() => {
+                                    setOpenMenuId(null);
+                                    approveMutation.mutate({
+                                      id: r.id,
+                                      action: "reject",
+                                    });
+                                  }}
+                                >
+                                  <X size={14} />
+                                  Reject
+                                </button>
+                              </>
+                            )}
+                            {isSuperAdmin && (
+                              <>
+                                <div className="border-t border-lab-border my-1" />
+                                <button
+                                  className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 text-red-700 flex items-center gap-2"
+                                  onClick={() => {
+                                    setOpenMenuId(null);
+                                    if (
+                                      confirm(
+                                        `Delete requisition ${r.requisition_number}? This cannot be undone.`,
+                                      )
+                                    ) {
+                                      deleteRequisitionMutation.mutate(r.id);
+                                    }
+                                  }}
+                                >
+                                  <Trash2 size={14} />
+                                  Delete
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -830,11 +829,13 @@ export function ProcurementPage() {
                 )}
               </tbody>
             </table>
+            </div>
           </div>
         )}
 
         {tab === "pos" && (
-          <div className="card">
+          <div className="card overflow-visible">
+            <div className="table-wrap">
             <table className="data-table">
               <thead>
                 <tr>
@@ -843,7 +844,7 @@ export function ProcurementPage() {
                   <th>Amount</th>
                   <th>Status</th>
                   <th>Date</th>
-                  <th>Actions</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -863,65 +864,57 @@ export function ProcurementPage() {
                       {format(new Date(p.created_at), "dd MMM yyyy")}
                     </td>
                     <td>
-                      <div className="relative">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={(e) => handleMenuToggle(p.id, e)}
-                        >
-                          <MoreVertical size={16} />
-                        </Button>
-                        {openMenuId === p.id && (
-                          <>
-                            <div
-                              className="fixed inset-0 z-10"
-                              onClick={() => setOpenMenuId(null)}
-                            />
-                            <div
-                              className={clsx(
-                                "absolute right-0 w-48 bg-white rounded-lg shadow-lg border border-lab-border z-20 py-1",
-                                menuPositions[p.id] === "top"
-                                  ? "bottom-full mb-1"
-                                  : "top-full mt-1",
-                              )}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={(e) => handleMenuToggle(p.id, e)}
+                      >
+                        <MoreVertical size={16} />
+                      </Button>
+                      {openMenuId === p.id && menuRect && (
+                        <>
+                          <div
+                            className="fixed inset-0 z-10"
+                            onClick={() => setOpenMenuId(null)}
+                          />
+                          <div
+                            className="fixed w-48 bg-white rounded-lg shadow-lg border border-lab-border z-20 py-1"
+                            style={menuStyle}
+                          >
+                            <button
+                              className="w-full px-4 py-2 text-left text-sm hover:bg-lab-bg flex items-center gap-2"
+                              onClick={() => {
+                                setViewPO(p);
+                                setOpenMenuId(null);
+                              }}
                             >
-                              <button
-                                className="w-full px-4 py-2 text-left text-sm hover:bg-lab-bg flex items-center gap-2"
-                                onClick={() => {
-                                  setViewPO(p);
-                                  setOpenMenuId(null);
-                                }}
-                              >
-                                <Eye size={14} />
-                                {p.total_amount
-                                  ? "View Details"
-                                  : "Complete PO"}
-                              </button>
-                              {isSuperAdmin && (
-                                <>
-                                  <div className="border-t border-lab-border my-1" />
-                                  <button
-                                    className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 text-red-700 flex items-center gap-2"
-                                    onClick={() => {
-                                      setOpenMenuId(null);
-                                      if (
-                                        confirm(
-                                          `Delete purchase order ${p.po_number}? This cannot be undone.`,
-                                        )
-                                      ) {
-                                        deletePOMutation.mutate(p.id);
-                                      }
-                                    }}
-                                  >
-                                    <Trash2 size={14} />
-                                    Delete
-                                  </button>
-                                </>
-                              )}
-                            </div>
-                          </>
-                        )}
-                      </div>
+                              <Eye size={14} />
+                              {p.total_amount ? "View Details" : "Complete PO"}
+                            </button>
+                            {isSuperAdmin && (
+                              <>
+                                <div className="border-t border-lab-border my-1" />
+                                <button
+                                  className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 text-red-700 flex items-center gap-2"
+                                  onClick={() => {
+                                    setOpenMenuId(null);
+                                    if (
+                                      confirm(
+                                        `Delete purchase order ${p.po_number}? This cannot be undone.`,
+                                      )
+                                    ) {
+                                      deletePOMutation.mutate(p.id);
+                                    }
+                                  }}
+                                >
+                                  <Trash2 size={14} />
+                                  Delete
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -934,6 +927,7 @@ export function ProcurementPage() {
                 )}
               </tbody>
             </table>
+            </div>
           </div>
         )}
 
@@ -1771,7 +1765,7 @@ export function ClientsPage() {
               <p className="text-2xl font-bold text-yellow-600">
                 {summary.leads ?? 0}
               </p>
-              <p className="text-sm text-lab-muted mt-1">Total Leads</p>
+              <p className="text-sm text-lab-muted mt-1">Total Prospects</p>
             </div>
             <div className="card p-4 text-center">
               <p className="text-2xl font-bold text-blue-600">
@@ -1859,7 +1853,7 @@ export function ClientsPage() {
                             "opacity-50 cursor-not-allowed",
                         )}
                       >
-                        {c.client_status === "lead" ? "Lead" : "Active"}
+                        {c.client_status === "lead" ? "Prospect" : "Active"}
                       </button>
                     ) : (
                       <span
@@ -1870,7 +1864,7 @@ export function ClientsPage() {
                             : "bg-green-100 text-green-800",
                         )}
                       >
-                        {c.client_status === "lead" ? "Lead" : "Active"}
+                        {c.client_status === "lead" ? "Prospect" : "Active"}
                       </span>
                     )}
                   </td>
@@ -2380,9 +2374,28 @@ function ClientHistoryModal({
 // ── Team Page ──────────────────────────────────────────────────────────────────
 export function TeamPage() {
   const [showNew, setShowNew] = useState(false);
+  const qc = useQueryClient();
+  const { user: currentUser } = useAuth();
+
   const { data } = useQuery({
     queryKey: ["team"],
     queryFn: () => api.get("/users").then((r) => r.data.data),
+  });
+
+  const toggleActiveMutation = useMutation({
+    mutationFn: ({ id, is_active }: { id: string; is_active: boolean }) =>
+      api.patch(`/users/${id}`, { is_active }),
+    onSuccess: (_, vars) => {
+      toast.success(vars.is_active ? "User activated" : "User deactivated");
+      qc.invalidateQueries({ queryKey: ["team"] });
+    },
+    onError: (e: any) => toast.error(e.response?.data?.error || "Failed"),
+  });
+
+  const resetPasswordMutation = useMutation({
+    mutationFn: (id: string) => api.post(`/users/${id}/reset-password`, {}),
+    onSuccess: () => toast.success("Password reset email sent"),
+    onError: (e: any) => toast.error(e.response?.data?.error || "Failed"),
   });
 
   return (
@@ -2431,6 +2444,45 @@ export function TeamPage() {
                 <p className="text-xs text-lab-muted mt-2">
                   Last login: {format(new Date(u.last_login_at), "dd MMM yyyy")}
                 </p>
+              )}
+              {/* Action buttons — hidden for the current logged-in user */}
+              {u.id !== currentUser?.id && (
+                <div className="flex gap-2 mt-3 pt-3 border-t border-lab-border">
+                  <button
+                    onClick={() =>
+                      resetPasswordMutation.mutate(u.id)
+                    }
+                    disabled={resetPasswordMutation.isPending}
+                    className="flex items-center gap-1.5 text-xs text-lab-muted hover:text-primary-600 px-2 py-1.5 rounded-lg hover:bg-primary-50 transition-colors"
+                    title="Send password reset email"
+                  >
+                    <KeyRound size={13} />
+                    Reset Password
+                  </button>
+                  <button
+                    onClick={() =>
+                      toggleActiveMutation.mutate({
+                        id: u.id,
+                        is_active: !u.is_active,
+                      })
+                    }
+                    disabled={toggleActiveMutation.isPending}
+                    className={clsx(
+                      "flex items-center gap-1.5 text-xs px-2 py-1.5 rounded-lg transition-colors ml-auto",
+                      u.is_active
+                        ? "text-red-500 hover:text-red-700 hover:bg-red-50"
+                        : "text-green-600 hover:text-green-700 hover:bg-green-50",
+                    )}
+                    title={u.is_active ? "Deactivate user" : "Activate user"}
+                  >
+                    {u.is_active ? (
+                      <UserX size={13} />
+                    ) : (
+                      <UserCheck size={13} />
+                    )}
+                    {u.is_active ? "Deactivate" : "Activate"}
+                  </button>
+                </div>
               )}
             </Card>
           ))}
@@ -2486,6 +2538,7 @@ function NewUserModal({ onClose }: { onClose: () => void }) {
             { value: "procurement_officer", label: "Procurement Officer" },
             { value: "finance", label: "Finance" },
             { value: "business_development", label: "Business Development" },
+            { value: "marketer", label: "Marketer" },
             { value: "md", label: "MD / Director" },
           ]}
         />

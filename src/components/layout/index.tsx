@@ -20,6 +20,8 @@ import {
   X,
   Truck,
   WifiOff,
+  TrendingUp,
+  BookOpen,
 } from "lucide-react";
 import { useAuth } from "../../lib/auth";
 import { useState, useContext, createContext } from "react";
@@ -80,6 +82,12 @@ const NAV_ITEMS = [
     items: [
       { label: "Clients", icon: Building2, to: "/clients", roles: [] },
       {
+        label: "Marketers",
+        icon: TrendingUp,
+        to: "/marketers",
+        roles: ["md", "super_admin", "marketer"],
+      },
+      {
         label: "Suppliers",
         icon: Truck,
         to: "/suppliers",
@@ -95,6 +103,12 @@ const NAV_ITEMS = [
         icon: Users,
         to: "/team",
         roles: ["md", "super_admin", "quality_manager"],
+      },
+      {
+        label: "Reports",
+        icon: BookOpen,
+        to: "/reports",
+        roles: ["md", "super_admin", "finance"],
       },
       {
         label: "Audit Logs",

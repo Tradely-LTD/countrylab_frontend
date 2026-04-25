@@ -101,24 +101,24 @@ export function ApprovalQueuePage() {
             >
               <div className="flex items-start gap-4">
                 {/* Icon */}
-                <div className="w-12 h-12 rounded-xl bg-violet-50 flex items-center justify-center shrink-0">
-                  <ClipboardList size={22} className="text-violet-600" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-violet-50 flex items-center justify-center shrink-0">
+                  <ClipboardList size={20} className="text-violet-600" />
                 </div>
 
-                {/* Details */}
+                {/* Details + Actions */}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-display text-base">{item.sample?.name}</p>
-                      <p className="text-xs text-lab-muted mt-0.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-display text-sm sm:text-base truncate">{item.sample?.name}</p>
+                      <p className="text-xs text-lab-muted mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                         <code className="font-mono bg-slate-100 px-1.5 py-0.5 rounded">{item.sample?.ulid}</code>
-                        {' · '}
-                        {item.sample?.matrix}
-                        {' · '}
-                        Analyst: <span className="font-medium text-lab-text">{item.analyst?.full_name}</span>
+                        <span className="hidden sm:inline">·</span>
+                        <span className="hidden sm:inline">{item.sample?.matrix}</span>
+                        <span>·</span>
+                        <span>Analyst: <span className="font-medium text-lab-text">{item.analyst?.full_name}</span></span>
                       </p>
                     </div>
-                    <StatusBadge status={item.overall_status} />
+                    <StatusBadge status={item.overall_status} className="shrink-0" />
                   </div>
 
                   {item.notes && (
@@ -127,39 +127,39 @@ export function ApprovalQueuePage() {
                     </p>
                   )}
 
-                  <p className="text-xs text-lab-muted mt-2">
+                  <p className="text-xs text-lab-muted mt-1.5">
                     Submitted {format(new Date(item.created_at), 'dd MMM yyyy, HH:mm')}
                   </p>
-                </div>
 
-                {/* Actions */}
-                <div className="flex gap-2 shrink-0">
-                  <Link to={`/results/${item.id}`}>
-                    <Button variant="secondary" size="sm" leftIcon={<Eye size={13} />}>
-                      View
+                  {/* Actions — below details, wraps on mobile */}
+                  <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-lab-border">
+                    <Link to={`/results/${item.id}`}>
+                      <Button variant="secondary" size="sm" leftIcon={<Eye size={13} />}>
+                        View
+                      </Button>
+                    </Link>
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      leftIcon={<X size={13} />}
+                      onClick={() => setRejectTarget(item.id)}
+                    >
+                      Reject
                     </Button>
-                  </Link>
-                  <Button
-                    size="sm"
-                    variant="danger"
-                    leftIcon={<X size={13} />}
-                    onClick={() => setRejectTarget(item.id)}
-                  >
-                    Reject
-                  </Button>
-                  <Button
-                    size="sm"
-                    leftIcon={<Check size={13} />}
-                    loading={approveMutation.isPending && approveMutation.variables === item.id}
-                    onClick={() => {
-                      if (confirm('Approve this result and generate the Certificate of Analysis?')) {
-                        approveMutation.mutate(item.id);
-                      }
-                    }}
-                    className="bg-emerald-600 hover:bg-emerald-700"
-                  >
-                    Approve & Sign
-                  </Button>
+                    <Button
+                      size="sm"
+                      leftIcon={<Check size={13} />}
+                      loading={approveMutation.isPending && approveMutation.variables === item.id}
+                      onClick={() => {
+                        if (confirm('Approve this result and generate the Certificate of Analysis?')) {
+                          approveMutation.mutate(item.id);
+                        }
+                      }}
+                      className="bg-emerald-600 hover:bg-emerald-700"
+                    >
+                      Approve & Sign
+                    </Button>
+                  </div>
                 </div>
               </div>
             </motion.div>
