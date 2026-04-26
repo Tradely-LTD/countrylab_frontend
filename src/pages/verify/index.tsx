@@ -34,12 +34,20 @@ export function VerifyPage() {
       `}</style>
       <div className="min-h-screen bg-lab-bg flex flex-col items-center justify-center p-6">
         {/* Header */}
-        <div className="flex items-center gap-2 mb-8 no-print">
-          <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center">
-            <TestTubeDiagonal size={18} className="text-white" />
-          </div>
+        <div className="flex items-center gap-3 mb-8 no-print">
+          {data?.data?.org?.logo_url ? (
+            <img
+              src={data.data.org.logo_url}
+              alt={data.data.org.name}
+              className="h-10 max-w-[140px] object-contain"
+            />
+          ) : (
+            <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center">
+              <TestTubeDiagonal size={18} className="text-white" />
+            </div>
+          )}
           <span className="font-display text-xl text-primary-800 font-bold">
-            Countrylab LMS
+            {data?.data?.org?.name || "Countrylab LMS"}
           </span>
         </div>
 
@@ -84,6 +92,12 @@ export function VerifyPage() {
 
               {data.verified && data.data && (
                 <div className="p-6 space-y-5">
+                  {/* Org accreditation */}
+                  {data.data.org?.accreditation_number && (
+                    <p className="text-xs text-lab-muted">
+                      Accreditation No: <span className="font-medium text-lab-text">{data.data.org.accreditation_number}</span>
+                    </p>
+                  )}
                   {/* Sample Info */}
                   <div>
                     <h3 className="label mb-3">Sample Information</h3>
