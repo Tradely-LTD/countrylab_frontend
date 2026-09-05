@@ -1,14 +1,17 @@
 // src/lib/api.ts
-import axios from 'axios';
+import axios from "axios";
+
+// Use environment variable for API URL, fallback to relative path for development
+const API_BASE_URL = import.meta.env.VITE_API_URL || "/api/v1";
 
 export const api = axios.create({
-  baseURL: '/api/v1',
-  headers: { 'Content-Type': 'application/json' },
+  baseURL: API_BASE_URL,
+  headers: { "Content-Type": "application/json" },
 });
 
 // Inject auth token
 api.interceptors.request.use((config) => {
-  const session = localStorage.getItem('sb-session');
+  const session = localStorage.getItem("sb-session");
   if (session) {
     try {
       const parsed = JSON.parse(session);
@@ -25,9 +28,9 @@ api.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err.response?.status === 401) {
-      localStorage.removeItem('sb-session');
-      window.location.href = '/login';
+      localStorage.removeItem("sb-session");
+      window.location.href = "/login";
     }
     return Promise.reject(err);
-  }
+  },
 );
