@@ -7,6 +7,7 @@ import {
 } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { api } from "./api";
+import { hasRole } from "./roles";
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
@@ -102,7 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   function isRole(...roles: string[]) {
-    return user ? roles.includes(user.role) : false;
+    return hasRole(user?.role, roles);
   }
 
   return (

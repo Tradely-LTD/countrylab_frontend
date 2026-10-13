@@ -19,6 +19,7 @@ import {
   Clock,
   ChevronRight,
   Trash2,
+  Check,
 } from "lucide-react";
 import { api } from "../../lib/api";
 import { AppShell, PageContainer, TopHeader } from "../../components/layout";
@@ -42,6 +43,7 @@ import { clsx } from "clsx";
 
 // ── Samples List Page ─────────────────────────────────────────────────────────
 export function SamplesListPage() {
+  const navigate = useNavigate();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -133,12 +135,10 @@ export function SamplesListPage() {
                     key={sample.id}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    onClick={() =>
-                      (window.location.href = `/samples/${sample.id}`)
-                    }
+                    onClick={() => navigate(`/samples/${sample.id}`)}
                   >
                     <td>
-                      <span className="font-mono text-xs bg-slate-100 px-2 py-0.5 rounded font-semibold">
+                      <span className="font-mono text-xs text-slate-700 bg-slate-50 ring-1 ring-inset ring-slate-200 px-1.5 py-0.5 rounded">
                         {sample.ulid}
                       </span>
                     </td>
@@ -254,7 +254,7 @@ function NewSampleModal({ onClose }: { onClose: () => void }) {
         .get("/users")
         .then((r) =>
           r.data.data.filter((u: any) =>
-            ["lab_analyst", "quality_manager", "md", "super_admin"].includes(
+            ["lab_analyst", "lab_manager", "quality_manager", "md", "general_manager", "super_admin"].includes(
               u.role,
             ),
           ),
@@ -511,6 +511,7 @@ export function SampleDetailPage() {
               variant="secondary"
               leftIcon={<ArrowLeft size={14} />}
               onClick={() => navigate(-1)}
+              className="hidden sm:inline-flex"
             >
               Back
             </Button>
@@ -582,25 +583,20 @@ export function SampleDetailPage() {
 
             {/* Status Timeline */}
             <Card className="p-5">
-              <h3 className="font-display text-base mb-4">Status Timeline</h3>
+              <h3 className="text-sm font-semibold mb-5">Status Timeline</h3>
               <StatusTimeline current={data.status} />
             </Card>
 
             {/* Results */}
             <Card className="p-5">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-display text-base">Test Results</h3>
-                <Link to={`/results/new?sample_id=${id}`}>
-                  <Button size="sm" leftIcon={<Plus size={12} />}>
-                    Add Results
-                  </Button>
-                </Link>
+                <h3 className="text-sm font-semibold">Test Results</h3>
               </div>
               {(results || []).length === 0 ? (
                 <EmptyState
                   icon={<FileCheck size={24} className="text-lab-muted" />}
                   title="No results yet"
-                  description="Enter test results for this sample"
+                  description="Results entered for this sample will appear here."
                 />
               ) : (
                 <div className="space-y-2">
@@ -696,48 +692,55 @@ export function SampleDetailPage() {
 }
 
 function StatusTimeline({ current }: { current: string }) {
-  const steps = ["received", "in_testing", "pending_review", "approved"];
-  const currentIdx = steps.indexOf(current);
+  const steps = [
+    { key: "received", label: "Received" },
+    { key: "in_testing", label: "In Testing" },
+    { key: "pending_review", label: "Pending Review" },
+    { key: "approved", label: "Approved" },
+  ];
+  const currentIdx = steps.findIndex((s) => s.key === current);
+  // The final step is complete once reached; earlier steps are complete once passed
+  const isDone = (i: number) =>
+    i < currentIdx || (i === currentIdx && i === steps.length - 1);
 
   return (
-    <div className="flex items-center">
+    <ol className="flex items-start">
       {steps.map((step, i) => (
-        <div key={step} className="flex items-center flex-1 last:flex-none">
-          <div className="flex flex-col items-center">
+        <li key={step.key} className="flex items-start flex-1 last:flex-none">
+          <div className="flex flex-col items-center w-20 -mx-6 first:ml-0">
             <div
               className={clsx(
-                "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-all",
-                i < currentIdx
+                "w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold border-2 transition-colors",
+                isDone(i)
                   ? "bg-primary-600 border-primary-600 text-white"
                   : i === currentIdx
-                    ? "bg-white border-primary-600 text-primary-600"
-                    : "bg-white border-slate-200 text-slate-300",
+                    ? "bg-white border-primary-600 text-primary-700 ring-4 ring-primary-100"
+                    : "bg-white border-slate-200 text-slate-400",
               )}
+              aria-current={i === currentIdx ? "step" : undefined}
             >
-              {i < currentIdx ? "✓" : i + 1}
+              {isDone(i) ? <Check size={14} strokeWidth={3} /> : i + 1}
             </div>
             <p
               className={clsx(
-                "text-[10px] mt-1 text-center leading-tight",
-                i <= currentIdx
-                  ? "text-primary-700 font-medium"
-                  : "text-slate-400",
+                "text-xs mt-2 text-center leading-tight",
+                i <= currentIdx ? "text-lab-text font-medium" : "text-lab-muted",
               )}
             >
-              {step.replace(/_/g, " ")}
+              {step.label}
             </p>
           </div>
           {i < steps.length - 1 && (
             <div
               className={clsx(
-                "flex-1 h-0.5 mx-2 rounded mb-4",
+                "flex-1 h-0.5 mt-4 rounded",
                 i < currentIdx ? "bg-primary-500" : "bg-slate-200",
               )}
             />
           )}
-        </div>
+        </li>
       ))}
-    </div>
+    </ol>
   );
 }
 

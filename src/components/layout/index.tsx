@@ -22,8 +22,10 @@ import {
   WifiOff,
   TrendingUp,
   BookOpen,
+  GraduationCap,
 } from "lucide-react";
 import { useAuth } from "../../lib/auth";
+import { canAccessPage, roleLabel } from "../../lib/roles";
 import { useState, useContext, createContext } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -44,7 +46,7 @@ const NAV_ITEMS = [
         label: "MD Queue",
         icon: ClipboardList,
         to: "/approval-queue",
-        roles: ["md", "super_admin"],
+        roles: ["md", "super_admin", "lab_manager"],
       },
     ],
   },
@@ -73,7 +75,14 @@ const NAV_ITEMS = [
         label: "Invoices",
         icon: FileText,
         to: "/invoices",
-        roles: ["md", "super_admin", "finance", "business_development"],
+        roles: [
+          "md",
+          "super_admin",
+          "finance",
+          "business_development",
+          "operations_manager",
+          "secretary",
+        ],
       },
     ],
   },
@@ -102,19 +111,31 @@ const NAV_ITEMS = [
         label: "Team",
         icon: Users,
         to: "/team",
-        roles: ["md", "super_admin", "quality_manager"],
+        roles: ["md", "super_admin", "quality_manager", "lab_manager"],
+      },
+      {
+        label: "Training Logs",
+        icon: GraduationCap,
+        to: "/training-logs",
+        roles: [
+          "md",
+          "super_admin",
+          "lab_manager",
+          "quality_manager",
+          "hr_manager",
+        ],
       },
       {
         label: "Reports",
         icon: BookOpen,
         to: "/reports",
-        roles: ["md", "super_admin", "finance"],
+        roles: ["md", "super_admin", "finance", "operations_manager"],
       },
       {
         label: "Audit Logs",
         icon: BarChart3,
         to: "/audit-logs",
-        roles: ["md", "super_admin", "quality_manager"],
+        roles: ["md", "super_admin", "quality_manager", "internal_auditor"],
       },
       {
         label: "Settings",
@@ -158,7 +179,7 @@ export function Sidebar({ collapsed, onCollapse }: SidebarProps) {
   return (
     <aside
       className={clsx(
-        "flex flex-col h-screen bg-white border-r border-lab-border transition-all duration-300 fixed left-0 top-0 z-30",
+        "flex flex-col h-dvh bg-white border-r border-lab-border transition-[width,transform] duration-200 ease-out fixed left-0 top-0 z-30",
         collapsed ? "w-16" : "w-[240px]",
         // On mobile: hidden off-screen by default, slides in when mobileOpen
         mobileOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full md:translate-x-0",
@@ -172,10 +193,12 @@ export function Sidebar({ collapsed, onCollapse }: SidebarProps) {
               <TestTubeDiagonal size={18} className="text-white" />
             </div>
             <div>
-              <p className="font-display text-sm font-bold text-primary-800 leading-tight">
+              <p className="text-[15px] font-bold text-lab-text leading-tight tracking-tight">
                 Countrylab
               </p>
-              <p className="text-[10px] text-lab-muted leading-tight">LMS</p>
+              <p className="text-[11px] text-lab-muted leading-tight">
+                Laboratory Management
+              </p>
             </div>
           </div>
         )}
@@ -187,7 +210,8 @@ export function Sidebar({ collapsed, onCollapse }: SidebarProps) {
         {/* Desktop: collapse toggle */}
         <button
           onClick={() => onCollapse?.(!collapsed)}
-          className="p-1.5 rounded-lg hover:bg-lab-bg text-lab-muted ml-auto hidden md:flex"
+          className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 ml-auto hidden md:flex"
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           {collapsed ? (
             <ChevronDown size={14} className="-rotate-90" />
@@ -205,17 +229,19 @@ export function Sidebar({ collapsed, onCollapse }: SidebarProps) {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-5">
+      <nav className="flex-1 overflow-y-auto py-3 px-3 space-y-4" aria-label="Main">
         {NAV_ITEMS.map((section) => {
           const filtered = section.items.filter(
-            (item) => item.roles.length === 0 || isRole(...item.roles),
+            (item) =>
+              (item.roles.length === 0 || isRole(...item.roles)) &&
+              canAccessPage(user?.role, item.to),
           );
           if (filtered.length === 0) return null;
 
           return (
             <div key={section.section}>
               {!collapsed && <p className="section-label">{section.section}</p>}
-              <div className="space-y-0.5">
+              <div className="space-y-px">
                 {filtered.map((item) => (
                   <NavLink
                     key={item.to}
@@ -258,14 +284,15 @@ export function Sidebar({ collapsed, onCollapse }: SidebarProps) {
               <p className="text-xs font-semibold text-lab-text truncate">
                 {user?.full_name}
               </p>
-              <p className="text-[10px] text-lab-muted capitalize">
-                {user?.role?.replace("_", " ")}
+              <p className="text-[10px] text-lab-muted">
+                {roleLabel(user?.role)}
               </p>
             </div>
             <button
               onClick={handleLogout}
               className="p-1.5 rounded-lg hover:bg-lab-bg text-lab-muted"
-              title="Logout"
+              title="Log out"
+            aria-label="Log out"
             >
               <LogOut size={14} />
             </button>
@@ -274,7 +301,8 @@ export function Sidebar({ collapsed, onCollapse }: SidebarProps) {
           <button
             onClick={handleLogout}
             className="p-1.5 rounded-lg hover:bg-lab-bg text-lab-muted"
-            title="Logout"
+            title="Log out"
+            aria-label="Log out"
           >
             <LogOut size={14} />
           </button>
@@ -312,7 +340,7 @@ export function TopHeader({
   return (
     <header
       className={clsx(
-        "fixed top-0 left-0 right-0 z-20 bg-white/90 backdrop-blur border-b border-lab-border h-16 flex items-center px-4 md:px-6 transition-all duration-300",
+        "fixed top-0 left-0 right-0 z-20 bg-white/90 backdrop-blur border-b border-lab-border h-16 flex items-center px-4 md:px-6 transition-[margin] duration-200 ease-out",
         marginLeft,
       )}
     >
@@ -329,14 +357,15 @@ export function TopHeader({
           {backButton && (
             <button
               onClick={() => navigate(-1)}
-              className="p-2 rounded-lg hover:bg-lab-bg text-lab-muted shrink-0"
+              className="p-2 rounded-lg hover:bg-slate-100 text-lab-muted shrink-0"
+              aria-label="Go back"
             >
               <ChevronDown size={16} className="rotate-90" />
             </button>
           )}
           {icon && <div className="text-primary-600 shrink-0">{icon}</div>}
           <div className="min-w-0">
-            <h1 className="font-display text-base md:text-lg text-lab-text leading-tight truncate">
+            <h1 className="text-base md:text-[17px] font-semibold tracking-tight text-lab-text leading-tight truncate">
               {title}
             </h1>
             {subtitle && (
@@ -378,7 +407,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <Sidebar collapsed={collapsed} onCollapse={setCollapsed} />
         <main
           className={clsx(
-            "transition-all duration-300 pt-16 min-h-screen",
+            "transition-[margin] duration-200 ease-out pt-16 min-h-screen",
             collapsed ? "md:ml-16" : "md:ml-[240px]",
           )}
         >

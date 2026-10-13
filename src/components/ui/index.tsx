@@ -16,6 +16,7 @@ import {
   CheckCircle,
   Info,
   XCircle,
+  Check,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -205,9 +206,35 @@ export function StatusBadge({ status }: { status: string }) {
     partial: "Partial",
   };
 
+  // Literal class names so Tailwind keeps them in the build
+  const classes: Record<string, string> = {
+    received: "badge-received",
+    in_testing: "badge-in_testing",
+    pending_review: "badge-pending_review",
+    approved: "badge-approved",
+    disposed: "badge-disposed",
+    voided: "badge-voided",
+    draft: "badge-draft",
+    submitted: "badge-submitted",
+    under_review: "badge-under_review",
+    rejected: "badge-rejected",
+    operational: "badge-operational",
+    under_repair: "badge-under_repair",
+    calibration_due: "badge-calibration_due",
+    decommissioned: "badge-decommissioned",
+    open: "badge-open",
+    in_progress: "badge-in_progress",
+    resolved: "badge-resolved",
+    closed: "badge-closed",
+    unpaid: "badge-unpaid",
+    paid: "badge-paid",
+    partial: "badge-partial",
+  };
+  const key = status?.toLowerCase().replace(/ /g, "_");
+
   return (
-    <span className={`badge-${status.toLowerCase().replace(" ", "_")}`}>
-      {labels[status] || status}
+    <span className={classes[key] ?? "badge-draft"}>
+      {labels[status] || status?.replace(/_/g, " ")}
     </span>
   );
 }
@@ -246,6 +273,14 @@ export function Modal({
     xl: "max-w-4xl",
   }[size];
 
+  // Close on Escape
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
   // Lock body scroll when modal is open
   useEffect(() => {
     if (open) {
@@ -270,7 +305,7 @@ export function Modal({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
-            className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
+            className="fixed inset-0 bg-slate-900/50 backdrop-blur-[2px] flex items-center justify-center p-4"
             style={{ zIndex: 9999 }}
             onClick={onClose}
           />
@@ -282,21 +317,25 @@ export function Modal({
               initial={{ opacity: 0, scale: 0.96, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 8 }}
-              transition={{ duration: 0.2, ease: [0.175, 0.885, 0.32, 1.05] }}
+              transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+              role="dialog"
+              aria-modal="true"
+              aria-label={title}
               className={clsx(
-                "bg-white rounded-2xl shadow-modal w-full pointer-events-auto max-h-[90vh] flex flex-col",
+                "bg-white rounded-xl shadow-modal ring-1 ring-slate-900/5 w-full pointer-events-auto max-h-[90dvh] flex flex-col",
                 sizeClass,
               )}
               onClick={(e) => e.stopPropagation()}
             >
               {title && (
                 <div className="flex items-center justify-between px-6 py-4 border-b border-lab-border flex-shrink-0">
-                  <h3 className="font-display text-lg text-lab-text">
+                  <h3 className="text-base font-semibold text-lab-text">
                     {title}
                   </h3>
                   <button
                     onClick={onClose}
-                    className="btn-icon text-lab-muted hover:text-lab-text"
+                    className="btn-icon text-slate-400 hover:text-slate-700 hover:bg-slate-100 -mr-2"
+                    aria-label="Close"
                   >
                     <X size={18} />
                   </button>
@@ -347,14 +386,15 @@ export function Pagination({
 
   return (
     <div className="flex items-center justify-between px-4 py-3 border-t border-lab-border">
-      <p className="text-xs text-lab-muted">
-        Showing {start}–{end} of {total}
+      <p className="text-xs text-lab-muted tabular-nums">
+        Showing {total === 0 ? 0 : start}–{end} of {total}
       </p>
       <div className="flex items-center gap-1">
         <button
           onClick={() => onChange(page - 1)}
           disabled={page <= 1}
           className="btn-icon btn-ghost disabled:opacity-40"
+          aria-label="Previous page"
         >
           <ChevronLeft size={16} />
         </button>
@@ -366,11 +406,12 @@ export function Pagination({
             <button
               key={p}
               onClick={() => onChange(p)}
+              aria-current={p === page ? "page" : undefined}
               className={clsx(
-                "w-8 h-8 rounded-lg text-xs font-medium transition-colors",
+                "w-8 h-8 rounded-lg text-xs font-medium tabular-nums transition-colors",
                 p === page
                   ? "bg-primary-600 text-white"
-                  : "text-lab-text hover:bg-lab-bg",
+                  : "text-slate-600 hover:bg-slate-100",
               )}
             >
               {p}
@@ -381,6 +422,7 @@ export function Pagination({
           onClick={() => onChange(page + 1)}
           disabled={page >= pages}
           className="btn-icon btn-ghost disabled:opacity-40"
+          aria-label="Next page"
         >
           <ChevronRight size={16} />
         </button>
@@ -404,7 +446,7 @@ export function EmptyState({
   return (
     <div className="empty-state">
       {icon && <div className="empty-state-icon text-lab-muted">{icon}</div>}
-      <h3 className="font-display text-base text-lab-text mb-1">{title}</h3>
+      <h3 className="text-sm font-semibold text-lab-text mb-1">{title}</h3>
       {description && (
         <p className="text-sm text-lab-muted max-w-xs">{description}</p>
       )}
@@ -467,7 +509,7 @@ export function StepIndicator({
                   : "bg-slate-100 text-slate-400",
             )}
           >
-            {i < current ? "✓" : i + 1}
+            {i < current ? <Check size={14} strokeWidth={3} /> : i + 1}
           </div>
           <div className="ml-2 mr-4">
             <p

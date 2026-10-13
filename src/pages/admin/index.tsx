@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { api } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
+import { ASSIGNABLE_ROLES, roleLabel } from "../../lib/roles";
 import { AppShell, PageContainer, TopHeader } from "../../components/layout";
 import {
   Button,
@@ -1629,6 +1630,9 @@ export function ClientsPage() {
     "quality_manager",
     "business_development",
     "finance",
+    "operations_manager",
+    "secretary",
+    "marketing_officer",
   );
 
   const canToggleStatus = isRole(
@@ -1637,6 +1641,8 @@ export function ClientsPage() {
     "quality_manager",
     "business_development",
     "finance",
+    "operations_manager",
+    "secretary",
   );
 
   // Fetch users for staff filter
@@ -2423,8 +2429,8 @@ export function TeamPage() {
                 </div>
                 <div>
                   <p className="font-semibold text-sm">{u.full_name}</p>
-                  <p className="text-xs text-lab-muted capitalize">
-                    {u.role.replace(/_/g, " ")}
+                  <p className="text-xs text-lab-muted">
+                    {roleLabel(u.role)}
                   </p>
                 </div>
                 <span
@@ -2531,16 +2537,7 @@ function NewUserModal({ onClose }: { onClose: () => void }) {
           label="Role *"
           value={form.role}
           onChange={set("role")}
-          options={[
-            { value: "lab_analyst", label: "Lab Analyst" },
-            { value: "quality_manager", label: "Quality Manager" },
-            { value: "inventory_manager", label: "Inventory Manager" },
-            { value: "procurement_officer", label: "Procurement Officer" },
-            { value: "finance", label: "Finance" },
-            { value: "business_development", label: "Business Development" },
-            { value: "marketer", label: "Marketer" },
-            { value: "md", label: "MD / Director" },
-          ]}
+          options={ASSIGNABLE_ROLES}
         />
         <Input
           label="Department"

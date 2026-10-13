@@ -5,7 +5,8 @@ export default {
     extend: {
       fontFamily: {
         sans: ['"DM Sans"', 'system-ui', 'sans-serif'],
-        display: ['"DM Serif Display"', 'Georgia', 'serif'],
+        // Headings use the UI sans at heavier weights; a serif read as dated in a data-dense LIMS
+        display: ['"DM Sans"', 'system-ui', 'sans-serif'],
         mono: ['"JetBrains Mono"', '"Fira Code"', 'monospace'],
       },
       colors: {
@@ -25,8 +26,9 @@ export default {
           bg: '#F8FAFC',
           surface: '#FFFFFF',
           border: '#E2E8F0',
-          muted: '#94A3B8',
-          text: '#1E293B',
+          muted: '#64748B', // slate-500: 4.7:1 on white (was 2.6:1)
+          subtle: '#94A3B8', // decorative only — icons, placeholders, dividers
+          text: '#0F172A',
         },
         status: {
           received: '#3B82F6',

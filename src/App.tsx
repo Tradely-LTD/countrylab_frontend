@@ -10,6 +10,8 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { Toaster } from "react-hot-toast";
 import React from "react";
 import { AuthProvider, useAuth } from "./lib/auth";
+import { canAccessPage, homePath } from "./lib/roles";
+import { TrainingLogsPage } from "./pages/training";
 import { LoginPage } from "./pages/auth/LoginPage";
 import { ForgotPasswordPage } from "./pages/auth/ForgotPasswordPage";
 import { ResetPasswordPage } from "./pages/auth/ResetPasswordPage";
@@ -114,13 +116,17 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
+  if (!canAccessPage(user.role, location.pathname)) {
+    return <Navigate to={homePath(user.role)} replace />;
+  }
+
   return <>{children}</>;
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   if (loading) return null;
-  if (user) return <Navigate to="/dashboard" replace />;
+  if (user) return <Navigate to={homePath(user.role)} replace />;
   return <>{children}</>;
 }
 
@@ -297,6 +303,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <AuditLogsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/training-logs"
+                element={
+                  <ProtectedRoute>
+                    <TrainingLogsPage />
                   </ProtectedRoute>
                 }
               />

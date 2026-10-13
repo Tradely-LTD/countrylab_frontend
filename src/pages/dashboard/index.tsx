@@ -8,11 +8,12 @@ import {
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { AppShell, PageContainer, TopHeader } from '../../components/layout';
-import { SkeletonCard, StatusBadge, Button } from '../../components/ui';
+import { SkeletonCard, Skeleton, StatusBadge } from '../../components/ui';
 import { Link } from 'react-router-dom';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell
 } from 'recharts';
+import { canAccessPage } from '../../lib/roles';
 import { clsx } from 'clsx';
 
 const fadeUp = {
@@ -24,48 +25,64 @@ const fadeUp = {
 };
 
 function StatCard({
-  icon: Icon, label, value, colorClass, trend, delay = 0
+  icon: Icon, label, value, hint, to, delay = 0
 }: {
   icon: any; label: string; value: string | number;
-  colorClass: string; trend?: string; delay?: number;
+  hint?: string; to?: string; delay?: number;
 }) {
-  return (
-    <motion.div variants={fadeUp} initial="hidden" animate="show" custom={delay} className="stat-card">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="stat-label">{label}</p>
-          <p className="stat-value mt-1">{value}</p>
-          {trend && <p className="stat-trend-up mt-1">{trend}</p>}
-        </div>
-        <div className={clsx('w-10 h-10 rounded-xl flex items-center justify-center', colorClass)}>
-          <Icon size={20} className="text-white" />
-        </div>
+  const body = (
+    <div className="flex items-start justify-between gap-3">
+      <div className="min-w-0">
+        <p className="stat-label">{label}</p>
+        <p className="stat-value mt-1.5">{value}</p>
+        {hint && <p className="text-xs text-lab-muted mt-1">{hint}</p>}
       </div>
+      <div className="w-9 h-9 rounded-lg bg-primary-50 flex items-center justify-center shrink-0">
+        <Icon size={18} className="text-primary-600" />
+      </div>
+    </div>
+  );
+  return (
+    <motion.div variants={fadeUp} initial="hidden" animate="show" custom={delay}>
+      {to ? (
+        <Link to={to} className="stat-card block hover:border-primary-200 hover:shadow-elevated transition-[border-color,box-shadow] duration-150">
+          {body}
+        </Link>
+      ) : (
+        <div className="stat-card">{body}</div>
+      )}
     </motion.div>
   );
 }
 
-function AlertBanner({
-  type, count, label, to
+function AlertChip({
+  tone, count, singular, plural, to
 }: {
-  type: 'warning' | 'error'; count: number; label: string; to: string;
+  tone: 'warning' | 'action'; count?: number; singular: string; plural: string; to: string;
 }) {
   if (!count) return null;
   return (
     <Link to={to} className={clsx(
-      'flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-medium',
-      type === 'warning'
-        ? 'bg-amber-50 border-amber-200 text-amber-800'
-        : 'bg-red-50 border-red-200 text-red-800'
+      'inline-flex items-center gap-2 pl-3 pr-2.5 py-1.5 rounded-lg border text-[13px] font-medium transition-colors',
+      tone === 'warning'
+        ? 'bg-amber-50 border-amber-200 text-amber-900 hover:bg-amber-100'
+        : 'bg-primary-50 border-primary-200 text-primary-800 hover:bg-primary-100'
     )}>
-      <div className="flex items-center gap-2">
-        <AlertTriangle size={14} />
-        <span>{count} {label}</span>
-      </div>
-      <ArrowRight size={13} />
+      {tone === 'warning' ? <AlertTriangle size={14} className="text-amber-600" /> : <Clock size={14} className="text-primary-600" />}
+      <span><span className="font-semibold tabular-nums">{count}</span> {count === 1 ? singular : plural}</span>
+      <ArrowRight size={13} className="opacity-60" />
     </Link>
   );
 }
+
+const STATUS_FILL: Record<string, string> = {
+  received: '#3B82F6',
+  in_testing: '#F59E0B',
+  pending_review: '#8B5CF6',
+  approved: '#10B981',
+  disposed: '#94A3B8',
+  voided: '#EF4444',
+};
 
 export default function DashboardPage() {
   const { user, isRole } = useAuth();
@@ -82,8 +99,9 @@ export default function DashboardPage() {
   });
 
   const statusData = (widgets?.samples?.byStatus || []).map((s: any) => ({
-    name: s.status.replace(/_/g, ' '),
+    name: s.status.replace(/_/g, ' ').replace(/^\w/, (c: string) => c.toUpperCase()),
     count: s.count,
+    fill: STATUS_FILL[s.status] ?? '#1A56DB',
   }));
 
   const greeting = (() => {
@@ -99,29 +117,32 @@ export default function DashboardPage() {
       />
       <PageContainer>
 
-        {/* Alert Banners */}
+        {/* Attention needed */}
         {!isLoading && (
-          <div className="space-y-2 mb-6">
-            <AlertBanner
-              type="error"
-              count={widgets?.inventory?.lowStock}
-              label="reagents below reorder level"
-              to="/inventory"
-            />
-            <AlertBanner
-              type="warning"
-              count={widgets?.assets?.calibrationDue}
-              label="assets due for calibration this month"
-              to="/assets"
-            />
-            {isRole('md', 'super_admin') && (
-              <AlertBanner
-                type="error"
+          <div className="flex flex-wrap gap-2 mb-5 empty:hidden">
+            {isRole('md', 'super_admin', 'lab_manager') && (
+              <AlertChip
+                tone="action"
                 count={widgets?.pendingApprovals}
-                label="results awaiting your approval"
+                singular="result awaiting your approval"
+                plural="results awaiting your approval"
                 to="/approval-queue"
               />
             )}
+            <AlertChip
+              tone="warning"
+              count={widgets?.inventory?.lowStock}
+              singular="reagent below reorder level"
+              plural="reagents below reorder level"
+              to="/inventory"
+            />
+            <AlertChip
+              tone="warning"
+              count={widgets?.assets?.calibrationDue}
+              singular="asset due for calibration"
+              plural="assets due for calibration"
+              to="/assets"
+            />
           </div>
         )}
 
@@ -135,30 +156,35 @@ export default function DashboardPage() {
                 icon={FlaskConical}
                 label="Samples Today"
                 value={widgets?.samples?.todayCount ?? 0}
-                colorClass="bg-blue-500"
+                hint="Registered since midnight"
+                to="/samples"
                 delay={0}
               />
               <StatCard
                 icon={Clock}
                 label="Pending Approvals"
                 value={widgets?.pendingApprovals ?? 0}
-                colorClass="bg-violet-500"
+                hint="Results awaiting sign-off"
+                to={isRole('md', 'super_admin', 'lab_manager') ? '/approval-queue' : '/results'}
                 delay={1}
               />
               <StatCard
                 icon={Package}
                 label="Low Stock Items"
                 value={widgets?.inventory?.lowStock ?? 0}
-                colorClass="bg-amber-500"
+                hint="At or below reorder level"
+                to="/inventory"
                 delay={2}
               />
               {isRole('md', 'super_admin', 'finance') ? (
                 <StatCard
                   icon={TrendingUp}
                   label="Month Revenue"
-                  value={`₦${((widgets?.finance?.monthRevenue ?? 0) / 1000).toFixed(0)}k`}
-                  colorClass="bg-emerald-500"
-                  trend="This month"
+                  value={new Intl.NumberFormat('en-NG', {
+                    style: 'currency', currency: 'NGN', notation: 'compact', maximumFractionDigits: 1,
+                  }).format(widgets?.finance?.monthRevenue ?? 0)}
+                  hint="Paid invoices this month"
+                  to={isRole('md', 'super_admin', 'finance') ? '/invoices' : undefined}
                   delay={3}
                 />
               ) : (
@@ -166,7 +192,8 @@ export default function DashboardPage() {
                   icon={Wrench}
                   label="Calibration Due"
                   value={widgets?.assets?.calibrationDue ?? 0}
-                  colorClass="bg-red-500"
+                  hint="Due within 30 days"
+                  to="/assets"
                   delay={3}
                 />
               )}
@@ -185,25 +212,36 @@ export default function DashboardPage() {
           >
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="font-display text-base">Sample Status Distribution</h3>
-                <p className="text-xs text-lab-muted">All samples by current status</p>
+                <h3 className="text-sm font-semibold">Samples by Status</h3>
+                <p className="text-xs text-lab-muted">All samples, current status</p>
               </div>
-              <Activity size={16} className="text-lab-muted" />
+              <Activity size={16} className="text-lab-subtle" />
             </div>
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={statusData} barSize={28}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                <Tooltip
-                  contentStyle={{
-                    borderRadius: 8, border: '1px solid #e2e8f0',
-                    fontSize: 12, boxShadow: '0 4px 6px rgba(0,0,0,0.05)'
-                  }}
-                />
-                <Bar dataKey="count" name="Samples" fill="#1A56DB" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            {isLoading ? (
+              <Skeleton className="h-[200px] w-full" />
+            ) : statusData.length === 0 ? (
+              <div className="h-[200px] flex items-center justify-center text-xs text-lab-muted">
+                No samples registered yet
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={statusData} barSize={36} margin={{ left: -16 }}>
+                  <CartesianGrid stroke="#f1f5f9" vertical={false} />
+                  <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                  <Tooltip
+                    cursor={{ fill: '#f8fafc' }}
+                    contentStyle={{
+                      borderRadius: 8, border: '1px solid #e2e8f0',
+                      fontSize: 12, boxShadow: '0 4px 6px rgba(0,0,0,0.05)'
+                    }}
+                  />
+                  <Bar dataKey="count" name="Samples" radius={[4, 4, 0, 0]}>
+                    {statusData.map((d: any) => <Cell key={d.name} fill={d.fill} />)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </motion.div>
 
           {/* Recent Samples */}
@@ -214,12 +252,12 @@ export default function DashboardPage() {
             className="card p-5"
           >
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-display text-base">Recent Samples</h3>
-              <Link to="/samples" className="text-xs text-primary-600 font-medium hover:text-primary-700">
-                View all →
+              <h3 className="text-sm font-semibold">Recent Samples</h3>
+              <Link to="/samples" className="inline-flex items-center gap-1 text-xs text-primary-600 font-medium hover:text-primary-700">
+                View all <ArrowRight size={12} />
               </Link>
             </div>
-            <div className="space-y-3">
+            <div className="-mx-2 space-y-0.5">
               {(activity?.recentSamples || []).length === 0 && (
                 <p className="text-xs text-lab-muted text-center py-6">No samples registered yet</p>
               )}
@@ -230,15 +268,15 @@ export default function DashboardPage() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.35 + i * 0.05 }}
                 >
-                  <Link to={`/samples/${s.id}`} className="flex items-center gap-3 group">
-                    <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
-                      <FlaskConical size={13} className="text-blue-600" />
+                  <Link to={`/samples/${s.id}`} className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-slate-50 transition-colors group">
+                    <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
+                      <FlaskConical size={14} className="text-slate-500" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold truncate group-hover:text-primary-600 transition-colors">
+                      <p className="text-[13px] font-medium truncate group-hover:text-primary-700 transition-colors">
                         {s.name}
                       </p>
-                      <p className="text-[10px] text-lab-muted">{s.client?.name}</p>
+                      <p className="text-xs text-lab-muted truncate">{s.client?.name}</p>
                     </div>
                     <StatusBadge status={s.status} />
                   </Link>
@@ -256,16 +294,22 @@ export default function DashboardPage() {
           className="grid grid-cols-2 md:grid-cols-4 gap-3"
         >
           {[
-            { label: 'Register Sample', to: '/samples/new', Icon: FlaskConical, bg: 'bg-blue-50', fg: 'text-blue-600' },
-            { label: 'Enter Results', to: '/results/new', Icon: FileCheck, bg: 'bg-violet-50', fg: 'text-violet-600' },
-            { label: 'New Requisition', to: '/procurement/new', Icon: ShoppingCart, bg: 'bg-amber-50', fg: 'text-amber-600' },
-            { label: 'Add Asset', to: '/assets/new', Icon: Wrench, bg: 'bg-emerald-50', fg: 'text-emerald-600' },
-          ].map(({ label, to, Icon, bg, fg }) => (
-            <Link key={to} to={to} className="card-hover p-4 flex items-center gap-3 group">
-              <div className={clsx('w-9 h-9 rounded-xl flex items-center justify-center shrink-0', bg)}>
-                <Icon size={17} className={fg} />
+            { label: 'Register Sample', to: '/samples/new', Icon: FlaskConical,
+              roles: ['super_admin', 'md', 'quality_manager', 'lab_manager', 'lab_analyst', 'inventory_manager', 'operations_manager', 'secretary'] },
+            { label: 'Enter Results', to: '/results/new', Icon: FileCheck,
+              roles: ['super_admin', 'md', 'quality_manager', 'lab_manager', 'lab_analyst'] },
+            { label: 'New Requisition', to: '/procurement/new', Icon: ShoppingCart, roles: [] as string[] },
+            { label: 'Add Asset', to: '/assets/new', Icon: Wrench,
+              roles: ['super_admin', 'md', 'inventory_manager', 'operations_manager'] },
+          ]
+            .filter(({ to, roles }) => (roles.length === 0 || isRole(...roles)) && canAccessPage(user?.role, to))
+            .map(({ label, to, Icon }) => (
+            <Link key={to} to={to} className="card-hover p-4 flex items-center gap-3 group hover:border-primary-200">
+              <div className="w-9 h-9 rounded-lg bg-slate-100 group-hover:bg-primary-50 flex items-center justify-center shrink-0 transition-colors">
+                <Icon size={17} className="text-slate-500 group-hover:text-primary-600 transition-colors" />
               </div>
               <span className="text-sm font-medium group-hover:text-primary-700 transition-colors">{label}</span>
+              <ArrowRight size={14} className="ml-auto text-slate-300 group-hover:text-primary-500 transition-colors" />
             </Link>
           ))}
         </motion.div>
