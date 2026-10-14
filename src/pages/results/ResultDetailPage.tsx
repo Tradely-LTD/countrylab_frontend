@@ -134,9 +134,10 @@ export function ResultDetailPage() {
                   <h2 className="font-display text-lg mb-1">Result Status</h2>
                   <StatusBadge status={result.overall_status} />
                 </div>
-                {isApproved && result.coa_url && (
+                {isApproved && (result.qr_hash || result.coa_url) && (
                   <a
-                    href={result.coa_url}
+                    // Build from the hash on the current origin; stored coa_url may hold a stale host
+                    href={result.qr_hash ? `/verify/${result.qr_hash}` : result.coa_url}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="btn-primary btn-sm"

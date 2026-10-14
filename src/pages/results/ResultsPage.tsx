@@ -135,9 +135,11 @@ export function ResultsListPage() {
                         : "—"}
                     </td>
                     <td>
-                      {result.coa_url && (
+                      {(result.qr_hash || result.coa_url) &&
+                        result.overall_status === "approved" && (
                         <a
-                          href={result.coa_url}
+                          // Build from the hash on the current origin; stored coa_url may hold a stale host
+                          href={result.qr_hash ? `/verify/${result.qr_hash}` : result.coa_url}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-primary-600 hover:text-primary-700 text-xs font-medium"
