@@ -21,13 +21,14 @@ import {
 const CATEGORIES = ["Induction", "Technical", "Safety", "Quality", "Other"];
 
 export function TrainingLogsPage() {
-  const { isRole } = useAuth();
+  const { can } = useAuth();
   const qc = useQueryClient();
   const [staffFilter, setStaffFilter] = useState("");
   const [showNew, setShowNew] = useState(false);
 
   // HR may only view; these roles may record and remove entries
-  const canManage = isRole("super_admin", "md", "lab_manager", "quality_manager");
+  const canManage = can("training_logs.create");
+  const canDelete = can("training_logs.delete");
 
   const { data: logs, isLoading } = useQuery({
     queryKey: ["training-logs", staffFilter],
@@ -97,7 +98,7 @@ export function TrainingLogsPage() {
                 <th>Completed</th>
                 <th>Expires</th>
                 <th>Recorded By</th>
-                {canManage && <th />}
+                {canDelete && <th />}
               </tr>
             </thead>
             <tbody>
@@ -113,7 +114,7 @@ export function TrainingLogsPage() {
                 ))}
               {!isLoading && (logs || []).length === 0 && (
                 <tr>
-                  <td colSpan={canManage ? 7 : 6}>
+                  <td colSpan={canDelete ? 7 : 6}>
                     <EmptyState
                       icon={<GraduationCap size={28} />}
                       title="No training records yet"
@@ -159,7 +160,7 @@ export function TrainingLogsPage() {
                     <td className="text-xs text-lab-muted">
                       {log.recorded_by?.full_name || "—"}
                     </td>
-                    {canManage && (
+                    {canDelete && (
                       <td>
                         <button
                           className="p-1.5 rounded-lg hover:bg-red-50 text-lab-muted hover:text-red-600"

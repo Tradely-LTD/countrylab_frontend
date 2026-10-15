@@ -1,5 +1,8 @@
-// Mirrors backend/src/middleware/auth.ts — keep the two in sync.
+// Page access is driven by the permissions the API returns for the signed-in
+// user (/users/me → permissions). Admins edit them under Roles & Permissions;
+// the backend enforces the same permissions on every endpoint.
 
+// Fallback names for built-in roles; the API's role_name wins when present
 export const ROLE_LABELS: Record<string, string> = {
   super_admin: "Super Admin",
   md: "Managing Director",
@@ -20,76 +23,55 @@ export const ROLE_LABELS: Record<string, string> = {
   customer: "Customer",
 };
 
-export function roleLabel(role?: string) {
+export function roleLabel(role?: string, names?: Record<string, string>) {
   if (!role) return "";
-  return ROLE_LABELS[role] ?? role.replace(/_/g, " ");
+  return names?.[role] ?? ROLE_LABELS[role] ?? role.replace(/_/g, " ");
 }
 
-// Roles that can be assigned from the Team page
-export const ASSIGNABLE_ROLES = [
-  "md",
-  "general_manager",
-  "operations_manager",
-  "lab_manager",
-  "quality_manager",
-  "lab_analyst",
-  "hr_manager",
-  "secretary",
-  "marketing_officer",
-  "internal_auditor",
-  "inventory_manager",
-  "procurement_officer",
-  "finance",
-  "business_development",
-  "marketer",
-].map((value) => ({ value, label: ROLE_LABELS[value] }));
+// Most specific patterns first; a page opens when the user holds ANY listed permission
+const PAGE_PERMISSIONS: [RegExp, string[]][] = [
+  [/^\/samples\/new$/, ["samples.create"]],
+  [/^\/results\/new$/, ["results.create"]],
+  [/^\/assets\/new$/, ["assets.create"]],
+  [/^\/procurement\/new$/, ["requisitions.create"]],
+  [/^\/invoices\/new$/, ["invoices.create"]],
+  [/^\/invoices\/[^/]+\/edit$/, ["invoices.update"]],
+  [/^\/dashboard(\/|$)/, ["dashboard.view"]],
+  [/^\/requests(\/|$)/, ["sample_requests.view"]],
+  [/^\/samples(\/|$)/, ["samples.view"]],
+  [/^\/results(\/|$)/, ["results.view"]],
+  [/^\/approval-queue(\/|$)/, ["results.approve"]],
+  [/^\/inventory(\/|$)/, ["inventory.view"]],
+  [/^\/assets(\/|$)/, ["assets.view"]],
+  [/^\/procurement(\/|$)/, ["requisitions.view", "purchase_orders.view"]],
+  [/^\/invoices(\/|$)/, ["invoices.view"]],
+  [/^\/clients(\/|$)/, ["clients.view"]],
+  [/^\/marketers(\/|$)/, ["leads.view", "marketers.view"]],
+  [/^\/suppliers(\/|$)/, ["suppliers.view"]],
+  [/^\/team(\/|$)/, ["team.view"]],
+  [/^\/training-logs(\/|$)/, ["training_logs.view"]],
+  [/^\/reports(\/|$)/, ["reports.view"]],
+  [/^\/audit-logs(\/|$)/, ["audit_logs.view"]],
+  [/^\/settings(\/|$)/, ["settings.update"]],
+  [/^\/roles(\/|$)/, ["roles.view"]],
+];
 
-// The General Manager holds the same executive privileges as the MD.
-const ROLE_INHERITS: Record<string, string[]> = {
-  general_manager: ["md"],
-};
+// Where to land after sign-in: the first page the user may open
+const HOME_ORDER = [
+  "/dashboard", "/samples", "/requests", "/results", "/approval-queue",
+  "/inventory", "/assets", "/procurement", "/invoices", "/clients",
+  "/marketers", "/suppliers", "/team", "/training-logs", "/reports",
+  "/audit-logs", "/settings", "/roles",
+];
+export const NO_ACCESS_PATH = "/no-access";
 
-export function hasRole(role: string | undefined, roles: string[]) {
-  if (!role) return false;
-  return (
-    roles.includes(role) ||
-    (ROLE_INHERITS[role] ?? []).some((parent) => roles.includes(parent))
-  );
+export function canAccessPage(permissions: string[] | undefined, path: string) {
+  const rule = PAGE_PERMISSIONS.find(([re]) => re.test(path));
+  if (!rule) return true;
+  const held = new Set(permissions ?? []);
+  return rule[1].some((p) => held.has(p));
 }
 
-// Narrow roles only see these pages. Everyone else is governed by the
-// per-item role lists in the sidebar and by the API.
-const ROLE_PAGES: Record<string, { allow: string[]; deny?: string[] }> = {
-  hr_manager: { allow: ["/training-logs"] },
-  internal_auditor: { allow: ["/audit-logs"] },
-  marketing_officer: {
-    allow: ["/dashboard", "/clients", "/requests", "/samples"],
-    deny: ["/samples/new"],
-  },
-  secretary: {
-    allow: [
-      "/dashboard",
-      "/requests",
-      "/samples",
-      "/results",
-      "/invoices",
-      "/clients",
-    ],
-    deny: ["/results/new"],
-  },
-};
-
-function matchesPrefix(path: string, prefix: string) {
-  return path === prefix || path.startsWith(prefix + "/");
-}
-
-export function canAccessPage(role: string | undefined, path: string) {
-  const pages = role ? ROLE_PAGES[role] : undefined;
-  if (!pages) return true;
-  if (pages.deny?.some((p) => matchesPrefix(path, p))) return false;
-  return pages.allow.some((p) => matchesPrefix(path, p));
-}
-
-export function homePath(role: string | undefined) {
-  return (role && ROLE_PAGES[role]?.allow[0]) || "/dashboard";
+export function homePath(permissions: string[] | undefined) {
+  return HOME_ORDER.find((p) => canAccessPage(permissions, p)) ?? NO_ACCESS_PATH;
 }

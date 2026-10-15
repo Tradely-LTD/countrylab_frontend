@@ -10,7 +10,9 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { Toaster } from "react-hot-toast";
 import React from "react";
 import { AuthProvider, useAuth } from "./lib/auth";
-import { canAccessPage, homePath } from "./lib/roles";
+import { canAccessPage, homePath, NO_ACCESS_PATH } from "./lib/roles";
+import { RolesPage } from "./pages/roles";
+import { NoAccessPage } from "./pages/roles/NoAccessPage";
 import { TrainingLogsPage } from "./pages/training";
 import { LoginPage } from "./pages/auth/LoginPage";
 import { ForgotPasswordPage } from "./pages/auth/ForgotPasswordPage";
@@ -116,8 +118,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (!canAccessPage(user.role, location.pathname)) {
-    return <Navigate to={homePath(user.role)} replace />;
+  if (
+    location.pathname !== NO_ACCESS_PATH &&
+    !canAccessPage(user.permissions, location.pathname)
+  ) {
+    return <Navigate to={homePath(user.permissions)} replace />;
   }
 
   return <>{children}</>;
@@ -126,7 +131,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   if (loading) return null;
-  if (user) return <Navigate to={homePath(user.role)} replace />;
+  if (user) return <Navigate to={homePath(user.permissions)} replace />;
   return <>{children}</>;
 }
 
@@ -311,6 +316,22 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <TrainingLogsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/roles"
+                element={
+                  <ProtectedRoute>
+                    <RolesPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/no-access"
+                element={
+                  <ProtectedRoute>
+                    <NoAccessPage />
                   </ProtectedRoute>
                 }
               />

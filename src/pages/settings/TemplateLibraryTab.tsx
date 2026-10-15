@@ -42,9 +42,9 @@ interface TemplateDetail extends TemplateSummary {
 }
 
 export function TemplateLibraryTab() {
-  const { isRole } = useAuth();
+  const { can } = useAuth();
   const qc = useQueryClient();
-  const canManage = isRole("quality_manager", "md", "super_admin");
+  const canManage = can("templates.create", "templates.update", "templates.delete");
 
   const [showCreate, setShowCreate] = useState(false);
   const [showImport, setShowImport] = useState(false);
