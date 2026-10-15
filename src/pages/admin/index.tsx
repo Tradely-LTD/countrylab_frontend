@@ -26,7 +26,8 @@ import {
 } from "lucide-react";
 import { api } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
-import { ASSIGNABLE_ROLES, roleLabel } from "../../lib/roles";
+import { roleLabel } from "../../lib/roles";
+import { useRoles, assignableRoleOptions } from "../../lib/useRoles";
 import { AppShell, PageContainer, TopHeader } from "../../components/layout";
 import {
   Button,
@@ -424,8 +425,9 @@ export function ProcurementPage() {
     right: number;
   } | null>(null);
   const qc = useQueryClient();
-  const { user } = useAuth();
-  const isSuperAdmin = user?.role === "super_admin";
+  const { can } = useAuth();
+  const canDeleteRequisitions = can("requisitions.delete");
+  const canDeletePOs = can("purchase_orders.delete");
 
   const handleMenuToggle = (id: string, event: React.MouseEvent) => {
     if (openMenuId === id) {
@@ -789,7 +791,7 @@ export function ProcurementPage() {
                                 </button>
                               </>
                             )}
-                            {isSuperAdmin && (
+                            {canDeleteRequisitions && (
                               <>
                                 <div className="border-t border-lab-border my-1" />
                                 <button
@@ -892,7 +894,7 @@ export function ProcurementPage() {
                               <Eye size={14} />
                               {p.total_amount ? "View Details" : "Complete PO"}
                             </button>
-                            {isSuperAdmin && (
+                            {canDeletePOs && (
                               <>
                                 <div className="border-t border-lab-border my-1" />
                                 <button
@@ -1614,7 +1616,7 @@ export function ClientsPage() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [isExporting, setIsExporting] = useState(false);
-  const { user, isRole } = useAuth();
+  const { user, can } = useAuth();
   const queryClient = useQueryClient();
 
   // Default business_development users to their own filter
@@ -1624,26 +1626,8 @@ export function ClientsPage() {
     }
   }, [user?.id, user?.role]);
 
-  const canManageClients = isRole(
-    "super_admin",
-    "md",
-    "quality_manager",
-    "business_development",
-    "finance",
-    "operations_manager",
-    "secretary",
-    "marketing_officer",
-  );
-
-  const canToggleStatus = isRole(
-    "super_admin",
-    "md",
-    "quality_manager",
-    "business_development",
-    "finance",
-    "operations_manager",
-    "secretary",
-  );
+  const canManageClients = can("clients.create");
+  const canToggleStatus = can("clients.update");
 
   // Fetch users for staff filter
   const { data: usersData } = useQuery({
@@ -2381,7 +2365,9 @@ function ClientHistoryModal({
 export function TeamPage() {
   const [showNew, setShowNew] = useState(false);
   const qc = useQueryClient();
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, can } = useAuth();
+  const { roles, names: roleNames } = useRoles();
+  const canEditTeam = can("team.update");
 
   const { data } = useQuery({
     queryKey: ["team"],
@@ -2398,6 +2384,17 @@ export function TeamPage() {
     onError: (e: any) => toast.error(e.response?.data?.error || "Failed"),
   });
 
+  const changeRoleMutation = useMutation({
+    mutationFn: ({ id, role }: { id: string; role: string }) =>
+      api.patch(`/users/${id}`, { role }),
+    onSuccess: (_, vars) => {
+      toast.success(`Role changed to ${roleNames[vars.role] ?? vars.role}`);
+      qc.invalidateQueries({ queryKey: ["team"] });
+      qc.invalidateQueries({ queryKey: ["roles"] });
+    },
+    onError: (e: any) => toast.error(e.response?.data?.error || "Failed"),
+  });
+
   const resetPasswordMutation = useMutation({
     mutationFn: (id: string) => api.post(`/users/${id}/reset-password`, {}),
     onSuccess: () => toast.success("Password reset email sent"),
@@ -2409,12 +2406,14 @@ export function TeamPage() {
       <TopHeader
         title="Team Management"
         actions={
+          can("team.create") && (
           <Button
             leftIcon={<Plus size={14} />}
             onClick={() => setShowNew(true)}
           >
             Add Team Member
           </Button>
+          )
         }
       />
       <PageContainer>
@@ -2427,11 +2426,39 @@ export function TeamPage() {
                     {u.full_name.charAt(0)}
                   </span>
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="font-semibold text-sm">{u.full_name}</p>
-                  <p className="text-xs text-lab-muted">
-                    {roleLabel(u.role)}
-                  </p>
+                  {canEditTeam &&
+                  u.id !== currentUser?.id &&
+                  (u.role !== "super_admin" || currentUser?.role === "super_admin") &&
+                  roles.length > 0 ? (
+                    <select
+                      value={u.role}
+                      onChange={(e) => {
+                        const role = e.target.value;
+                        if (confirm(`Change ${u.full_name}'s role to ${roleNames[role] ?? role}?`))
+                          changeRoleMutation.mutate({ id: u.id, role });
+                      }}
+                      disabled={changeRoleMutation.isPending}
+                      className="mt-0.5 -ml-1 max-w-full text-xs text-slate-600 bg-transparent border-0 rounded px-1 py-0.5 hover:bg-slate-100 focus:ring-2 focus:ring-primary-500/30 cursor-pointer"
+                      aria-label={`Role for ${u.full_name}`}
+                    >
+                      {assignableRoleOptions(roles, currentUser?.role)
+                        .concat(
+                          // keep the current value selectable even if not assignable
+                          roles.some((r) => r.key === u.role) ? [] : [{ value: u.role, label: roleLabel(u.role) }],
+                        )
+                        .map((o) => (
+                          <option key={o.value} value={o.value}>
+                            {o.label}
+                          </option>
+                        ))}
+                    </select>
+                  ) : (
+                    <p className="text-xs text-lab-muted">
+                      {roleLabel(u.role, roleNames)}
+                    </p>
+                  )}
                 </div>
                 <span
                   className={clsx(
@@ -2501,6 +2528,9 @@ export function TeamPage() {
 
 function NewUserModal({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient();
+  const { user: currentUser } = useAuth();
+  const { roles } = useRoles();
+  const roleOptions = assignableRoleOptions(roles, currentUser?.role);
   const [form, setForm] = useState({
     email: "",
     full_name: "",
@@ -2537,7 +2567,7 @@ function NewUserModal({ onClose }: { onClose: () => void }) {
           label="Role *"
           value={form.role}
           onChange={set("role")}
-          options={ASSIGNABLE_ROLES}
+          options={roleOptions}
         />
         <Input
           label="Department"
@@ -2570,14 +2600,9 @@ export function SuppliersPage() {
   const [viewingSupplier, setViewingSupplier] = useState<any>(null);
   const [search, setSearch] = useState("");
   const qc = useQueryClient();
-  const { user, isRole } = useAuth();
+  const { user, can } = useAuth();
 
-  const canManageSuppliers = isRole(
-    "super_admin",
-    "md",
-    "procurement_officer",
-    "inventory_manager",
-  );
+  const canManageSuppliers = can("suppliers.create", "suppliers.update");
 
   const { data: suppliers, isLoading } = useQuery({
     queryKey: ["suppliers"],
@@ -2697,7 +2722,7 @@ export function SuppliersPage() {
                             >
                               Edit
                             </Button>
-                            {isRole("super_admin") && (
+                            {can("suppliers.delete") && (
                               <Button
                                 variant="ghost"
                                 size="sm"

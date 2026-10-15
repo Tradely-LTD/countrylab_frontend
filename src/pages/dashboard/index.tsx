@@ -85,7 +85,7 @@ const STATUS_FILL: Record<string, string> = {
 };
 
 export default function DashboardPage() {
-  const { user, isRole } = useAuth();
+  const { user, can } = useAuth();
 
   const { data: widgets, isLoading } = useQuery({
     queryKey: ['dashboard-widgets'],
@@ -120,7 +120,7 @@ export default function DashboardPage() {
         {/* Attention needed */}
         {!isLoading && (
           <div className="flex flex-wrap gap-2 mb-5 empty:hidden">
-            {isRole('md', 'super_admin', 'lab_manager') && (
+            {can('results.approve') && (
               <AlertChip
                 tone="action"
                 count={widgets?.pendingApprovals}
@@ -165,7 +165,7 @@ export default function DashboardPage() {
                 label="Pending Approvals"
                 value={widgets?.pendingApprovals ?? 0}
                 hint="Results awaiting sign-off"
-                to={isRole('md', 'super_admin', 'lab_manager') ? '/approval-queue' : '/results'}
+                to={can('results.approve') ? '/approval-queue' : '/results'}
                 delay={1}
               />
               <StatCard
@@ -176,7 +176,7 @@ export default function DashboardPage() {
                 to="/inventory"
                 delay={2}
               />
-              {isRole('md', 'super_admin', 'finance') ? (
+              {can('dashboard.revenue') ? (
                 <StatCard
                   icon={TrendingUp}
                   label="Month Revenue"
@@ -184,7 +184,7 @@ export default function DashboardPage() {
                     style: 'currency', currency: 'NGN', notation: 'compact', maximumFractionDigits: 1,
                   }).format(widgets?.finance?.monthRevenue ?? 0)}
                   hint="Paid invoices this month"
-                  to={isRole('md', 'super_admin', 'finance') ? '/invoices' : undefined}
+                  to={can('invoices.view') ? '/invoices' : undefined}
                   delay={3}
                 />
               ) : (
@@ -294,15 +294,12 @@ export default function DashboardPage() {
           className="grid grid-cols-2 md:grid-cols-4 gap-3"
         >
           {[
-            { label: 'Register Sample', to: '/samples/new', Icon: FlaskConical,
-              roles: ['super_admin', 'md', 'quality_manager', 'lab_manager', 'lab_analyst', 'inventory_manager', 'operations_manager', 'secretary'] },
-            { label: 'Enter Results', to: '/results/new', Icon: FileCheck,
-              roles: ['super_admin', 'md', 'quality_manager', 'lab_manager', 'lab_analyst'] },
-            { label: 'New Requisition', to: '/procurement/new', Icon: ShoppingCart, roles: [] as string[] },
-            { label: 'Add Asset', to: '/assets/new', Icon: Wrench,
-              roles: ['super_admin', 'md', 'inventory_manager', 'operations_manager'] },
+            { label: 'Register Sample', to: '/samples/new', Icon: FlaskConical },
+            { label: 'Enter Results', to: '/results/new', Icon: FileCheck },
+            { label: 'New Requisition', to: '/procurement/new', Icon: ShoppingCart },
+            { label: 'Add Asset', to: '/assets/new', Icon: Wrench },
           ]
-            .filter(({ to, roles }) => (roles.length === 0 || isRole(...roles)) && canAccessPage(user?.role, to))
+            .filter(({ to }) => canAccessPage(user?.permissions, to))
             .map(({ label, to, Icon }) => (
             <Link key={to} to={to} className="card-hover p-4 flex items-center gap-3 group hover:border-primary-200">
               <div className="w-9 h-9 rounded-lg bg-slate-100 group-hover:bg-primary-50 flex items-center justify-center shrink-0 transition-colors">

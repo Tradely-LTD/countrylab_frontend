@@ -23,126 +23,51 @@ import {
   TrendingUp,
   BookOpen,
   GraduationCap,
+  ShieldCheck,
 } from "lucide-react";
 import { useAuth } from "../../lib/auth";
-import { canAccessPage, roleLabel } from "../../lib/roles";
+import { roleLabel } from "../../lib/roles";
 import { useState, useContext, createContext } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
+// Each item shows when the user holds ANY of its permissions
 const NAV_ITEMS = [
   {
     section: "Operations",
     items: [
-      {
-        label: "Dashboard",
-        icon: LayoutDashboard,
-        to: "/dashboard",
-        roles: [],
-      },
-      { label: "Requests", icon: FileText, to: "/requests", roles: [] },
-      { label: "Samples", icon: FlaskConical, to: "/samples", roles: [] },
-      { label: "Results & CoA", icon: FileCheck, to: "/results", roles: [] },
-      {
-        label: "MD Queue",
-        icon: ClipboardList,
-        to: "/approval-queue",
-        roles: ["md", "super_admin", "lab_manager"],
-      },
+      { label: "Dashboard", icon: LayoutDashboard, to: "/dashboard", perms: ["dashboard.view"] },
+      { label: "Requests", icon: FileText, to: "/requests", perms: ["sample_requests.view"] },
+      { label: "Samples", icon: FlaskConical, to: "/samples", perms: ["samples.view"] },
+      { label: "Results & CoA", icon: FileCheck, to: "/results", perms: ["results.view"] },
+      { label: "Approval Queue", icon: ClipboardList, to: "/approval-queue", perms: ["results.approve"] },
     ],
   },
   {
     section: "Inventory",
     items: [
-      {
-        label: "Stock & Consumables",
-        icon: Package,
-        to: "/inventory",
-        roles: [],
-      },
-      { label: "Assets & Equipment", icon: Wrench, to: "/assets", roles: [] },
+      { label: "Stock & Consumables", icon: Package, to: "/inventory", perms: ["inventory.view"] },
+      { label: "Assets & Equipment", icon: Wrench, to: "/assets", perms: ["assets.view"] },
     ],
   },
   {
     section: "Procurement",
     items: [
-      {
-        label: "Requisitions",
-        icon: ShoppingCart,
-        to: "/procurement",
-        roles: [],
-      },
-      {
-        label: "Invoices",
-        icon: FileText,
-        to: "/invoices",
-        roles: [
-          "md",
-          "super_admin",
-          "finance",
-          "business_development",
-          "operations_manager",
-          "secretary",
-        ],
-      },
+      { label: "Requisitions", icon: ShoppingCart, to: "/procurement", perms: ["requisitions.view", "purchase_orders.view"] },
+      { label: "Invoices", icon: FileText, to: "/invoices", perms: ["invoices.view"] },
     ],
   },
   {
     section: "Admin",
     items: [
-      { label: "Clients", icon: Building2, to: "/clients", roles: [] },
-      {
-        label: "Marketers",
-        icon: TrendingUp,
-        to: "/marketers",
-        roles: ["md", "super_admin", "marketer"],
-      },
-      {
-        label: "Suppliers",
-        icon: Truck,
-        to: "/suppliers",
-        roles: [
-          "md",
-          "super_admin",
-          "procurement_officer",
-          "inventory_manager",
-        ],
-      },
-      {
-        label: "Team",
-        icon: Users,
-        to: "/team",
-        roles: ["md", "super_admin", "quality_manager", "lab_manager"],
-      },
-      {
-        label: "Training Logs",
-        icon: GraduationCap,
-        to: "/training-logs",
-        roles: [
-          "md",
-          "super_admin",
-          "lab_manager",
-          "quality_manager",
-          "hr_manager",
-        ],
-      },
-      {
-        label: "Reports",
-        icon: BookOpen,
-        to: "/reports",
-        roles: ["md", "super_admin", "finance", "operations_manager"],
-      },
-      {
-        label: "Audit Logs",
-        icon: BarChart3,
-        to: "/audit-logs",
-        roles: ["md", "super_admin", "quality_manager", "internal_auditor"],
-      },
-      {
-        label: "Settings",
-        icon: Settings,
-        to: "/settings",
-        roles: ["md", "super_admin"],
-      },
+      { label: "Clients", icon: Building2, to: "/clients", perms: ["clients.view"] },
+      { label: "Marketers", icon: TrendingUp, to: "/marketers", perms: ["leads.view", "marketers.view"] },
+      { label: "Suppliers", icon: Truck, to: "/suppliers", perms: ["suppliers.view"] },
+      { label: "Team", icon: Users, to: "/team", perms: ["team.view"] },
+      { label: "Roles & Permissions", icon: ShieldCheck, to: "/roles", perms: ["roles.view"] },
+      { label: "Training Logs", icon: GraduationCap, to: "/training-logs", perms: ["training_logs.view"] },
+      { label: "Reports", icon: BookOpen, to: "/reports", perms: ["reports.view"] },
+      { label: "Audit Logs", icon: BarChart3, to: "/audit-logs", perms: ["audit_logs.view"] },
+      { label: "Settings", icon: Settings, to: "/settings", perms: ["settings.update"] },
     ],
   },
 ];
@@ -167,7 +92,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ collapsed, onCollapse }: SidebarProps) {
-  const { user, logout, isRole } = useAuth();
+  const { user, logout, can } = useAuth();
   const navigate = useNavigate();
   const { mobileOpen, setMobileOpen } = useContext(LayoutContext);
 
@@ -232,9 +157,7 @@ export function Sidebar({ collapsed, onCollapse }: SidebarProps) {
       <nav className="flex-1 overflow-y-auto py-3 px-3 space-y-4" aria-label="Main">
         {NAV_ITEMS.map((section) => {
           const filtered = section.items.filter(
-            (item) =>
-              (item.roles.length === 0 || isRole(...item.roles)) &&
-              canAccessPage(user?.role, item.to),
+            (item) => can(...item.perms),
           );
           if (filtered.length === 0) return null;
 
@@ -285,7 +208,7 @@ export function Sidebar({ collapsed, onCollapse }: SidebarProps) {
                 {user?.full_name}
               </p>
               <p className="text-[10px] text-lab-muted">
-                {roleLabel(user?.role)}
+                {user?.role_name ?? roleLabel(user?.role)}
               </p>
             </div>
             <button

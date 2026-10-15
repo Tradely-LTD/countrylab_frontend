@@ -58,7 +58,6 @@ const bankAccountSchema = z.object({
   label: z.string().optional(),
 });
 
-const BANK_ACCOUNT_ROLES = ["super_admin", "md", "finance"];
 
 const supplierSchema = z.object({
   name: z.string().min(1, "Supplier name is required"),
@@ -429,14 +428,14 @@ function OrganizationSettings() {
 // ── Bank Accounts Section ─────────────────────────────────────────────────────
 
 function BankAccountsSection() {
-  const { user } = useAuth();
+  const { user, can } = useAuth();
   const qc = useQueryClient();
   const [showModal, setShowModal] = useState(false);
   const [editingAccount, setEditingAccount] = useState<BankAccount | null>(
     null,
   );
 
-  const canManage = user ? BANK_ACCOUNT_ROLES.includes(user.role) : false;
+  const canManage = can("settings.bank_accounts");
 
   const { data: accounts = [], isLoading } = useQuery<BankAccount[]>({
     queryKey: ["bank-accounts"],
