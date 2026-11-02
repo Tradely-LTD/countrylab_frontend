@@ -2395,9 +2395,16 @@ export function TeamPage() {
     onError: (e: any) => toast.error(e.response?.data?.error || "Failed"),
   });
 
+  const [shareLink, setShareLink] = useState<{ name: string; link: string } | null>(null);
+
   const resetPasswordMutation = useMutation({
-    mutationFn: (id: string) => api.post(`/users/${id}/reset-password`, {}),
-    onSuccess: () => toast.success("Password reset email sent"),
+    mutationFn: (u: { id: string; full_name: string }) =>
+      api.post(`/users/${u.id}/reset-password`, {}),
+    onSuccess: (res, u) => {
+      if (res.data.email_sent) toast.success(res.data.message);
+      else if (res.data.reset_link) setShareLink({ name: u.full_name, link: res.data.reset_link });
+      else toast.error(res.data.message);
+    },
     onError: (e: any) => toast.error(e.response?.data?.error || "Failed"),
   });
 
@@ -2483,7 +2490,7 @@ export function TeamPage() {
                 <div className="flex gap-2 mt-3 pt-3 border-t border-lab-border">
                   <button
                     onClick={() =>
-                      resetPasswordMutation.mutate(u.id)
+                      resetPasswordMutation.mutate({ id: u.id, full_name: u.full_name })
                     }
                     disabled={resetPasswordMutation.isPending}
                     className="flex items-center gap-1.5 text-xs text-lab-muted hover:text-primary-600 px-2 py-1.5 rounded-lg hover:bg-primary-50 transition-colors"
@@ -2520,13 +2527,81 @@ export function TeamPage() {
             </Card>
           ))}
         </div>
-        {showNew && <NewUserModal onClose={() => setShowNew(false)} />}
+        {showNew && (
+          <NewUserModal
+            onClose={() => setShowNew(false)}
+            onLinkReady={(name, link) => setShareLink({ name, link })}
+          />
+        )}
+        {shareLink && (
+          <ShareLinkModal
+            name={shareLink.name}
+            link={shareLink.link}
+            onClose={() => setShareLink(null)}
+          />
+        )}
       </PageContainer>
     </AppShell>
   );
 }
 
-function NewUserModal({ onClose }: { onClose: () => void }) {
+// Shown when the email could not be sent: the admin passes the link on directly
+function ShareLinkModal({
+  name,
+  link,
+  onClose,
+}: {
+  name: string;
+  link: string;
+  onClose: () => void;
+}) {
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(link);
+      toast.success("Link copied");
+    } catch {
+      toast.error("Copy failed — select the link and copy it manually");
+    }
+  };
+  return (
+    <Modal open onClose={onClose} title="Send the set-password link" size="md">
+      <div className="space-y-3">
+        <p className="text-sm text-slate-700">
+          The email to <strong>{name}</strong> could not be sent. Copy this link and send
+          it to them directly (WhatsApp, SMS or your own email). It lets them set a
+          password and expires in 24 hours.
+        </p>
+        <textarea
+          readOnly
+          value={link}
+          rows={4}
+          onFocus={(e) => e.currentTarget.select()}
+          className="input font-mono text-xs break-all"
+          aria-label="Set-password link"
+        />
+        <p className="text-xs text-lab-muted">
+          Treat it like a password: anyone with this link can set the account's password.
+        </p>
+        <div className="flex gap-3 pt-1">
+          <Button variant="secondary" onClick={onClose} className="flex-1">
+            Done
+          </Button>
+          <Button onClick={copy} className="flex-1">
+            Copy link
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function NewUserModal({
+  onClose,
+  onLinkReady,
+}: {
+  onClose: () => void;
+  onLinkReady: (name: string, link: string) => void;
+}) {
   const qc = useQueryClient();
   const { user: currentUser } = useAuth();
   const { roles } = useRoles();
@@ -2539,8 +2614,11 @@ function NewUserModal({ onClose }: { onClose: () => void }) {
   });
   const mutation = useMutation({
     mutationFn: () => api.post("/users", form),
-    onSuccess: () => {
-      toast.success("User invited! An email has been sent.");
+    onSuccess: (res) => {
+      // The API says whether the invitation email actually went out
+      if (res.data.email_sent) toast.success(res.data.message);
+      else if (res.data.invite_link) onLinkReady(form.full_name, res.data.invite_link);
+      else toast(res.data.message, { icon: "⚠️", duration: 8000 });
       qc.invalidateQueries({ queryKey: ["team"] });
       onClose();
     },
