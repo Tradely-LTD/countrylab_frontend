@@ -33,7 +33,7 @@ export function ResetPasswordPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
 
-  const token = searchParams.get("token") || searchParams.get("access_token");
+  const token = searchParams.get("token_hash");
 
   const {
     register,
