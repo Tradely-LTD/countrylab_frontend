@@ -10,8 +10,11 @@ import {
   XCircle,
   AlertTriangle,
   FileText,
+  Download,
+  Printer,
 } from "lucide-react";
 import { api } from "../../lib/api";
+import { generateCoaPdf } from "../../lib/coaPdf";
 import { AppShell, PageContainer, TopHeader } from "../../components/layout";
 import {
   Button,
@@ -48,6 +51,19 @@ export function ResultDetailPage() {
     onError: (e: any) =>
       toast.error(e.response?.data?.error || "Failed to submit"),
   });
+
+  const [pdfBusy, setPdfBusy] = useState<"plain" | "letterhead" | null>(null);
+  const downloadCertificate = async (letterhead: boolean) => {
+    setPdfBusy(letterhead ? "letterhead" : "plain");
+    try {
+      const { data } = await api.get(`/results/${id}/certificate`);
+      generateCoaPdf(data.data, { letterhead });
+    } catch (e: any) {
+      toast.error(e.response?.data?.error || "Could not generate the certificate PDF");
+    } finally {
+      setPdfBusy(null);
+    }
+  };
 
   const deleteMutation = useMutation({
     mutationFn: () => api.delete(`/results/${id}`),
@@ -134,17 +150,41 @@ export function ResultDetailPage() {
                   <h2 className="font-display text-lg mb-1">Result Status</h2>
                   <StatusBadge status={result.overall_status} />
                 </div>
-                {isApproved && (result.qr_hash || result.coa_url) && (
-                  <a
-                    // Build from the hash on the current origin; stored coa_url may hold a stale host
-                    href={result.qr_hash ? `/verify/${result.qr_hash}` : result.coa_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn-primary btn-sm"
-                  >
-                    <FileText size={14} className="mr-2" />
-                    View Certificate
-                  </a>
+                {isApproved && (
+                  <div className="flex flex-wrap gap-2 justify-end">
+                    <Button
+                      size="sm"
+                      leftIcon={<Download size={14} />}
+                      loading={pdfBusy === "plain"}
+                      disabled={pdfBusy !== null}
+                      onClick={() => downloadCertificate(false)}
+                    >
+                      Download CoA (PDF)
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      leftIcon={<Printer size={14} />}
+                      loading={pdfBusy === "letterhead"}
+                      disabled={pdfBusy !== null}
+                      onClick={() => downloadCertificate(true)}
+                      title="Leaves the top of the page blank for pre-printed letterhead paper"
+                    >
+                      PDF for Letterhead
+                    </Button>
+                    {(result.qr_hash || result.coa_url) && (
+                      <a
+                        // Build from the hash on the current origin; stored coa_url may hold a stale host
+                        href={result.qr_hash ? `/verify/${result.qr_hash}` : result.coa_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn-secondary btn-sm"
+                      >
+                        <FileText size={14} className="mr-2" />
+                        Verification Page
+                      </a>
+                    )}
+                  </div>
                 )}
               </div>
 

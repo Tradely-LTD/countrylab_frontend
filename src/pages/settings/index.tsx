@@ -16,6 +16,7 @@ import {
   Users,
   FileText,
   CreditCard,
+  FileSignature,
 } from "lucide-react";
 import { api } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
@@ -421,7 +422,105 @@ function OrganizationSettings() {
       </Card>
 
       <BankAccountsSection />
+
+      <CertificateSettingsSection />
     </div>
+  );
+}
+
+// ── Certificate of Analysis Section ───────────────────────────────────────────
+
+interface CoaSettings {
+  signatory_label?: string;
+  signatory_name?: string;
+  signatory_title?: string;
+  disclaimer?: string;
+}
+
+function CertificateSettingsSection() {
+  const { can } = useAuth();
+  const qc = useQueryClient();
+  const canEdit = can("settings.update");
+
+  const { data: coa } = useQuery<CoaSettings>({
+    queryKey: ["coa-settings"],
+    queryFn: () => api.get("/settings/coa").then((r) => r.data.data),
+  });
+
+  const { register, handleSubmit, reset } = useForm<CoaSettings>({
+    defaultValues: { signatory_label: "", signatory_name: "", signatory_title: "", disclaimer: "" },
+  });
+
+  useEffect(() => {
+    if (coa) {
+      reset({
+        signatory_label: coa.signatory_label || "",
+        signatory_name: coa.signatory_name || "",
+        signatory_title: coa.signatory_title || "",
+        disclaimer: coa.disclaimer || "",
+      });
+    }
+  }, [coa, reset]);
+
+  const mutation = useMutation({
+    mutationFn: (d: CoaSettings) => api.put("/settings/coa", d),
+    onSuccess: () => {
+      toast.success("Certificate settings saved");
+      qc.invalidateQueries({ queryKey: ["coa-settings"] });
+    },
+    onError: (e: any) =>
+      toast.error(e.response?.data?.error || "Failed to save certificate settings"),
+  });
+
+  return (
+    <Card className="p-6">
+      <div className="flex items-center gap-2 mb-1">
+        <FileSignature size={18} className="text-lab-muted" />
+        <h3 className="font-display text-lg">Certificate of Analysis</h3>
+      </div>
+      <p className="text-sm text-lab-muted mb-4">
+        Printed in the signature block and footer of every Certificate of Analysis PDF.
+      </p>
+      <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="space-y-4">
+        <Input
+          label="Signature Caption"
+          {...register("signatory_label")}
+          placeholder="Signature of Public Analyst"
+          disabled={!canEdit}
+        />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Input
+            label="Signatory Name & Credentials"
+            {...register("signatory_name")}
+            placeholder="e.g. Full Name (MIPAN) Reg. No. 00000"
+            disabled={!canEdit}
+          />
+          <Input
+            label="Signatory Title"
+            {...register("signatory_title")}
+            placeholder="Laboratory Manager"
+            disabled={!canEdit}
+          />
+        </div>
+        <Textarea
+          label="Footer Disclaimer"
+          {...register("disclaimer")}
+          rows={4}
+          placeholder="Leave blank to use the standard Countrylab disclaimer"
+          disabled={!canEdit}
+        />
+        <p className="text-xs text-lab-muted">
+          If the signatory name is blank, the name of the person who approved the result is used.
+        </p>
+        {canEdit && (
+          <div className="flex gap-3 pt-2">
+            <Button type="submit" loading={mutation.isPending} leftIcon={<Save size={14} />}>
+              Save Certificate Settings
+            </Button>
+          </div>
+        )}
+      </form>
+    </Card>
   );
 }
 
