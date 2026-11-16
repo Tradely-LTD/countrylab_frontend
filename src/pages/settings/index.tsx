@@ -41,6 +41,11 @@ const orgSchema = z.object({
   phone: z.string().optional(),
   email: z.string().email().optional().or(z.literal("")),
   accreditation_number: z.string().optional(),
+  sample_id_prefix: z
+    .string()
+    .trim()
+    .max(15, "Prefix must be 15 characters or fewer")
+    .optional(),
 });
 
 interface BankAccount {
@@ -180,6 +185,7 @@ function OrganizationSettings() {
       phone: "",
       email: "",
       accreditation_number: "",
+      sample_id_prefix: "",
     },
   });
 
@@ -192,6 +198,7 @@ function OrganizationSettings() {
         phone: tenant.phone || "",
         email: tenant.email || "",
         accreditation_number: tenant.accreditation_number || "",
+        sample_id_prefix: tenant.settings?.sample_id_prefix || "",
       });
     }
   }, [tenant, reset]);
@@ -407,6 +414,13 @@ function OrganizationSettings() {
             label="Accreditation Number"
             {...register("accreditation_number")}
             placeholder="e.g. ISO 17025:2017"
+          />
+          <Input
+            label="Sample ID Prefix"
+            {...register("sample_id_prefix")}
+            placeholder="e.g. CL/"
+            hint="Every new Sample ID must start with this. Leave blank to allow any ID."
+            error={errors.sample_id_prefix?.message as string}
           />
 
           <div className="flex gap-3 pt-2">

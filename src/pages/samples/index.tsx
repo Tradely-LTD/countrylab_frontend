@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
@@ -22,6 +22,7 @@ import {
   Check,
 } from "lucide-react";
 import { api } from "../../lib/api";
+import { sampleIdError, useSampleIdPrefix } from "../../lib/sampleId";
 import { AppShell, PageContainer, TopHeader } from "../../components/layout";
 import {
   Button,
@@ -242,10 +243,28 @@ function NewSampleModal({ onClose }: { onClose: () => void }) {
   const {
     register,
     handleSubmit,
+    setError,
+    getValues,
+    setValue,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(sampleSchema),
   });
+
+  // Start the Sample ID with the organisation's required prefix (e.g. "CL/")
+  const sampleIdPrefix = useSampleIdPrefix();
+  useEffect(() => {
+    if (sampleIdPrefix && !getValues("ulid")) setValue("ulid", sampleIdPrefix);
+  }, [sampleIdPrefix, getValues, setValue]);
+
+  const onSubmit = (d: any) => {
+    const idError = sampleIdError(d.ulid ?? "", sampleIdPrefix);
+    if (idError) {
+      setError("ulid", { message: idError });
+      return;
+    }
+    mutation.mutate(d);
+  };
 
   const { data: clients } = useQuery({
     queryKey: ["clients-list"],
@@ -299,7 +318,7 @@ function NewSampleModal({ onClose }: { onClose: () => void }) {
   return (
     <Modal open onClose={onClose} title="Register New Sample" size="lg">
       <form
-        onSubmit={handleSubmit((d) => mutation.mutate(d))}
+        onSubmit={handleSubmit(onSubmit)}
         className="space-y-4"
       >
         {/* Basic Information */}
@@ -320,7 +339,8 @@ function NewSampleModal({ onClose }: { onClose: () => void }) {
           <Input
             label="Sample ID *"
             error={errors.ulid?.message as string}
-            placeholder="e.g. CL/901/26/DF"
+            placeholder={`e.g. ${sampleIdPrefix || "CL/"}901/26/DF`}
+            hint={sampleIdPrefix ? `Must start with ${sampleIdPrefix}` : undefined}
             {...register("ulid")}
           />
           <Input

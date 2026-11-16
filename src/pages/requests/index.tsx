@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -13,6 +13,7 @@ import {
   Package,
 } from "lucide-react";
 import { api } from "../../lib/api";
+import { sampleIdError, useSampleIdPrefix } from "../../lib/sampleId";
 import { AppShell, PageContainer, TopHeader } from "../../components/layout";
 import {
   Button,
@@ -570,7 +571,14 @@ function ConvertToSampleModal({
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [storageLocation, setStorageLocation] = useState("");
+  const sampleIdPrefix = useSampleIdPrefix();
   const [sampleId, setSampleId] = useState("");
+  const [idTouched, setIdTouched] = useState(false);
+  // Start the Sample ID with the organisation's required prefix (e.g. "CL/")
+  useEffect(() => {
+    if (sampleIdPrefix && !sampleId) setSampleId(sampleIdPrefix);
+  }, [sampleIdPrefix]); // eslint-disable-line react-hooks/exhaustive-deps
+  const idError = sampleIdError(sampleId, sampleIdPrefix);
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -602,9 +610,14 @@ function ConvertToSampleModal({
         <Input
           label="Sample ID *"
           value={sampleId}
-          onChange={(e) => setSampleId(e.target.value)}
-          placeholder="e.g. CL/901/26/DF"
+          onChange={(e) => {
+            setSampleId(e.target.value);
+            setIdTouched(true);
+          }}
+          placeholder={`e.g. ${sampleIdPrefix || "CL/"}901/26/DF`}
           maxLength={30}
+          error={idTouched && idError ? idError : undefined}
+          hint={sampleIdPrefix ? `Must start with ${sampleIdPrefix}` : undefined}
         />
         <Input
           label="Storage Location"
@@ -619,7 +632,7 @@ function ConvertToSampleModal({
           <Button
             onClick={() => mutation.mutate()}
             loading={mutation.isPending}
-            disabled={!sampleId.trim()}
+            disabled={!!idError}
             className="flex-1"
           >
             Convert to Sample
