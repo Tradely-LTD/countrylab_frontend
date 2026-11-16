@@ -12,9 +12,11 @@ import {
   FileText,
   Download,
   Printer,
+  Mail,
 } from "lucide-react";
 import { api } from "../../lib/api";
-import { generateCoaPdf } from "../../lib/coaPdf";
+import { buildCoaPdf, generateCoaPdf } from "../../lib/coaPdf";
+import { useAuth } from "../../lib/auth";
 import { AppShell, PageContainer, TopHeader } from "../../components/layout";
 import {
   Button,
@@ -23,6 +25,8 @@ import {
   Skeleton,
   Alert,
   Modal,
+  Input,
+  Textarea,
 } from "../../components/ui";
 import toast from "react-hot-toast";
 import { format } from "date-fns";
@@ -62,6 +66,49 @@ export function ResultDetailPage() {
       toast.error(e.response?.data?.error || "Could not generate the certificate PDF");
     } finally {
       setPdfBusy(null);
+    }
+  };
+
+  // ── Send certificate to client ──
+  const { can } = useAuth();
+  const [sendOpen, setSendOpen] = useState(false);
+  const [sendTo, setSendTo] = useState("");
+  const [sendMessage, setSendMessage] = useState("");
+  const [sendBusy, setSendBusy] = useState<"loading" | "sending" | null>(null);
+  const [certData, setCertData] = useState<any>(null);
+
+  const openSendModal = async () => {
+    setSendBusy("loading");
+    try {
+      const { data } = await api.get(`/results/${id}/certificate`);
+      setCertData(data.data);
+      setSendTo(data.data.client?.email || "");
+      setSendMessage("");
+      setSendOpen(true);
+    } catch (e: any) {
+      toast.error(e.response?.data?.error || "Could not load the certificate");
+    } finally {
+      setSendBusy(null);
+    }
+  };
+
+  const sendToClient = async () => {
+    if (!certData) return;
+    setSendBusy("sending");
+    try {
+      const doc = buildCoaPdf(certData, { letterhead: false });
+      const pdf = (doc.output("datauristring") as string).split(",")[1];
+      const res = await api.post(`/results/${id}/send-to-client`, {
+        to: sendTo.trim(),
+        message: sendMessage.trim() || undefined,
+        pdf_base64: pdf,
+      });
+      toast.success(res.data.message || "Certificate sent");
+      setSendOpen(false);
+    } catch (e: any) {
+      toast.error(e.response?.data?.error || "Failed to send the certificate");
+    } finally {
+      setSendBusy(null);
     }
   };
 
@@ -172,6 +219,18 @@ export function ResultDetailPage() {
                     >
                       PDF for Letterhead
                     </Button>
+                    {can("results.send") && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        leftIcon={<Mail size={14} />}
+                        loading={sendBusy === "loading"}
+                        disabled={sendBusy !== null || pdfBusy !== null}
+                        onClick={openSendModal}
+                      >
+                        Send to Client
+                      </Button>
+                    )}
                     {(result.qr_hash || result.coa_url) && (
                       <a
                         // Build from the hash on the current origin; stored coa_url may hold a stale host
@@ -521,6 +580,56 @@ export function ResultDetailPage() {
           </Modal>
         )}
       </PageContainer>
+      <Modal
+        open={sendOpen}
+        onClose={() => sendBusy !== "sending" && setSendOpen(false)}
+        title="Send Certificate to Client"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-lab-muted">
+            Emails the Certificate of Analysis for{" "}
+            <strong>{certData?.sample?.ulid}</strong> as a PDF attachment.
+          </p>
+          <Input
+            label="Client Email *"
+            type="email"
+            value={sendTo}
+            onChange={(e) => setSendTo(e.target.value)}
+            placeholder="client@example.com"
+            hint={
+              certData?.client?.email
+                ? undefined
+                : "This client has no email on file. Enter one to send."
+            }
+          />
+          <Textarea
+            label="Message (optional)"
+            rows={3}
+            value={sendMessage}
+            onChange={(e) => setSendMessage(e.target.value)}
+            placeholder="Added to the email above the certificate details"
+          />
+          <div className="flex gap-3 pt-2">
+            <Button
+              variant="secondary"
+              className="flex-1"
+              onClick={() => setSendOpen(false)}
+              disabled={sendBusy === "sending"}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="flex-1"
+              leftIcon={<Mail size={14} />}
+              loading={sendBusy === "sending"}
+              disabled={!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(sendTo.trim())}
+              onClick={sendToClient}
+            >
+              Send Certificate
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </AppShell>
   );
 }

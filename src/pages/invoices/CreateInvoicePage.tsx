@@ -137,7 +137,12 @@ export default function CreateInvoicePage() {
       return api.post("/invoices", payload);
     },
     onSuccess: (response) => {
-      toast.success("Invoice created successfully");
+      const to = response.data.emailing_to;
+      toast.success(
+        to
+          ? `Invoice created and being emailed to ${to}`
+          : "Invoice created. The client has no email address, so it was not emailed.",
+      );
       navigate(`/invoices/${response.data.data.id}`);
     },
     onError: (e: any) =>

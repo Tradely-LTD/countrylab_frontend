@@ -1,11 +1,12 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { FileText, Printer, DollarSign, Edit, Trash2 } from "lucide-react";
+import { FileText, Printer, DollarSign, Edit, Trash2, Mail } from "lucide-react";
 import { api } from "../../lib/api";
 import { AppShell, PageContainer, TopHeader } from "../../components/layout";
 import { Button, Badge, Skeleton, Modal, Input } from "../../components/ui";
 import toast from "react-hot-toast";
+import { useAuth } from "../../lib/auth";
 
 export default function InvoiceDetailPage() {
   const { id } = useParams();
@@ -66,6 +67,14 @@ export default function InvoiceDetailPage() {
     },
     onError: (e: any) =>
       toast.error(e.response?.data?.error || "Failed to void invoice"),
+  });
+
+  const { can } = useAuth();
+  const emailInvoice = useMutation({
+    mutationFn: () => api.post(`/invoices/${id}/email`, {}),
+    onSuccess: (res) => toast.success(res.data.message || "Invoice emailed"),
+    onError: (e: any) =>
+      toast.error(e.response?.data?.error || "Failed to email invoice"),
   });
 
   const handlePrint = () => {
@@ -263,6 +272,27 @@ export default function InvoiceDetailPage() {
                       Mark Paid
                     </Button>
                   </>
+                )}
+                {invoice.status !== "voided" && can("invoices.update") && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    leftIcon={<Mail size={14} />}
+                    loading={emailInvoice.isPending}
+                    disabled={!invoice.client?.email}
+                    title={
+                      invoice.client?.email
+                        ? `Email this invoice to ${invoice.client.email}`
+                        : "Add an email address to the client first"
+                    }
+                    onClick={() => {
+                      if (confirm(`Email invoice ${invoice.invoice_number} to ${invoice.client.email}?`)) {
+                        emailInvoice.mutate();
+                      }
+                    }}
+                  >
+                    Email to Client
+                  </Button>
                 )}
                 <Button
                   variant="outline"
