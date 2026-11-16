@@ -241,7 +241,7 @@ export function buildCoaPdf(data: CertificateData, opts: { letterhead?: boolean 
     ["Client/Establishment:", val(client?.company || client?.name, ""), "Date of Analysis:", date(result.created_at)],
     ["Address:", val(client?.address, ""), "Lab No.:", val(sample.ulid)],
     ["Delivered by:", val(client?.contact_person, "Client"), "Sampled by:", "Client"],
-    ["Sample Type:", val(sample.matrix || sample.name, ""), "Sample Container:", val(sample.sample_container)],
+    ["Sample Type:", val(sample.name || sample.matrix, ""), "Sample Container:", val(sample.sample_container)],
     ["Name of Manufacturer:", val(sample.manufacturer), "Temp./ Humidity:", val(sample.temperature_on_receipt)],
     ["Description/ Sample Label:", val(sample.description || sample.name, ""), "Sample Received Condition:", val(sample.sample_condition, "Good")],
     ["Receiving Date:", date(sample.received_at), "Appearance of Sample:", val(sample.sample_condition, "Good")],
