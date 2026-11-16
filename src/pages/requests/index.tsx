@@ -570,10 +570,12 @@ function ConvertToSampleModal({
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [storageLocation, setStorageLocation] = useState("");
+  const [sampleId, setSampleId] = useState("");
 
   const mutation = useMutation({
     mutationFn: () =>
       api.post(`/sample-requests/${requestId}/convert-to-sample`, {
+        ulid: sampleId.trim(),
         storage_location: storageLocation,
       }),
     onSuccess: (res) => {
@@ -598,6 +600,13 @@ function ConvertToSampleModal({
           received.
         </p>
         <Input
+          label="Sample ID *"
+          value={sampleId}
+          onChange={(e) => setSampleId(e.target.value)}
+          placeholder="e.g. CL/901/26/DF"
+          maxLength={30}
+        />
+        <Input
           label="Storage Location"
           value={storageLocation}
           onChange={(e) => setStorageLocation(e.target.value)}
@@ -610,6 +619,7 @@ function ConvertToSampleModal({
           <Button
             onClick={() => mutation.mutate()}
             loading={mutation.isPending}
+            disabled={!sampleId.trim()}
             className="flex-1"
           >
             Convert to Sample

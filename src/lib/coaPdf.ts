@@ -152,7 +152,7 @@ export function generateCoaPdf(
   opts: { letterhead?: boolean; mode?: "save" | "preview" } = {},
 ) {
   const doc = buildCoaPdf(data, opts);
-  const filename = `CoA-${data.sample.ulid}${opts.letterhead ? "-letterhead" : ""}.pdf`;
+  const filename = `CoA-${data.sample.ulid.replace(/[\/\\]/g, "-")}${opts.letterhead ? "-letterhead" : ""}.pdf`;
   if (opts.mode === "preview") {
     window.open(doc.output("bloburl") as unknown as string, "_blank");
   } else {

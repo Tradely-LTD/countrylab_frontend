@@ -212,6 +212,11 @@ export function SamplesListPage() {
 
 // ── New Sample Modal ──────────────────────────────────────────────────────────
 const sampleSchema = z.object({
+  ulid: z
+    .string()
+    .trim()
+    .min(1, "Sample ID is required")
+    .max(30, "Sample ID must be 30 characters or fewer"),
   client_id: z.string().uuid("Select a client"),
   name: z.string().min(1, "Sample name is required"),
   matrix: z.string().optional(),
@@ -311,6 +316,12 @@ function NewSampleModal({ onClose }: { onClose: () => void }) {
             }))}
             placeholder="Select a client..."
             {...register("client_id")}
+          />
+          <Input
+            label="Sample ID *"
+            error={errors.ulid?.message as string}
+            placeholder="e.g. CL/901/26/DF"
+            {...register("ulid")}
           />
           <Input
             label="Sample Name *"
